@@ -8,11 +8,21 @@
  * CONDITIONS OF ANY KIND, either express or implied. See the License for the
  * specific language governing permissions and limitations under the License.
  */
-package uk.ac.ebi.embl.fastareader.cli;
+package uk.ac.ebi.embl.fastareader.exception;
 
-public class Main {
-    public static void main(String[] args) {
-        System.out.printf(
-                "The CLI is not implemented by %s%n", Main.class.getPackage().getImplementationVersion());
+public class FastaFileException extends Exception {
+
+    public FastaFileException() {}
+
+    public FastaFileException(String message) {
+        super(message);
+    }
+
+    public FastaFileException(Throwable cause) {
+        super(cause);
+    }
+
+    public FastaFileException(String message, Throwable cause) {
+        super(message, cause);
     }
 }

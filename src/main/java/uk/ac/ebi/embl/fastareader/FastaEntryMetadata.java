@@ -8,11 +8,20 @@
  * CONDITIONS OF ANY KIND, either express or implied. See the License for the
  * specific language governing permissions and limitations under the License.
  */
-package uk.ac.ebi.embl.fastareader.cli;
+package uk.ac.ebi.embl.fastareader;
 
-public class Main {
-    public static void main(String[] args) {
-        System.out.printf(
-                "The CLI is not implemented by %s%n", Main.class.getPackage().getImplementationVersion());
-    }
+import lombok.Getter;
+import lombok.Setter;
+import uk.ac.ebi.embl.fastareader.headerutils.FastaHeader;
+import uk.ac.ebi.embl.fastareader.sequenceutils.SequenceIndex;
+
+@Getter
+@Setter
+class FastaEntryMetadata {
+    String submissionId;
+    String accessionId;
+    FastaHeader header;
+    // information needed for accessing the file
+    long fastaStartByte; // position of '>' in the file
+    SequenceIndex sequenceIndex; // a smart index for querying ranges in the file
 }

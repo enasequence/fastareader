@@ -8,11 +8,18 @@
  * CONDITIONS OF ANY KIND, either express or implied. See the License for the
  * specific language governing permissions and limitations under the License.
  */
-package uk.ac.ebi.embl.fastareader.cli;
+package uk.ac.ebi.embl.fastareader.sequenceutils;
 
-public class Main {
-    public static void main(String[] args) {
-        System.out.printf(
-                "The CLI is not implemented by %s%n", Main.class.getPackage().getImplementationVersion());
+public final class ByteSpan {
+    public final long start; // inclusive
+    public final long endEx; // exclusive
+
+    public ByteSpan(long start, long endEx) {
+        this.start = start;
+        this.endEx = endEx;
+    }
+
+    public long length() {
+        return endEx - start;
     }
 }
