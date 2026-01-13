@@ -62,3 +62,6 @@ bin/
 /*.gff3
 /*.py
 
+### Test-specific to ignore big files ###
+src/test/resources/fasta/single_fasta_large_sequence.txt
+
