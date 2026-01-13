@@ -10,4 +10,15 @@
  */
 package uk.ac.ebi.embl.fastareader;
 
-public class Topology {}
+import com.fasterxml.jackson.annotation.JsonCreator;
+import java.util.Locale;
+
+public enum Topology {
+    LINEAR,
+    CIRCULAR;
+
+    @JsonCreator
+    public static Topology from(String value) {
+        return value == null ? null : Topology.valueOf(value.trim().toUpperCase(Locale.ROOT));
+    }
+}
