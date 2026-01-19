@@ -18,7 +18,6 @@ import java.util.List;
 import java.util.Optional;
 import java.util.Set;
 import java.util.stream.Collectors;
-
 import org.junit.jupiter.api.Test;
 import uk.ac.ebi.embl.fastareader.exception.FastaFileException;
 
@@ -26,7 +25,7 @@ class FastaReaderIntegrationTest {
 
     @Test
     void doesNotTolerateImproperHeaders() throws IOException {
-        //by improper headers, i mean ones that do not start in > and end with a newline as per the general spec */
+        // by improper headers, i mean ones that do not start in > and end with a newline as per the general spec */
         File fasta = FastaTestResources.file("fasta", "malformed_headerline_fasta.txt");
 
         assertThrows(FastaFileException.class, () -> new FastaReader(fasta));
@@ -34,7 +33,8 @@ class FastaReaderIntegrationTest {
 
     @Test
     void toleratesDifferentFastaHeaders() throws IOException {
-        File fasta = FastaTestResources.file("fasta", "differing_headerline_fasta.txt"); //this example has varying fasta headers
+        File fasta = FastaTestResources.file(
+                "fasta", "differing_headerline_fasta.txt"); // this example has varying fasta headers
 
         assertDoesNotThrow(() -> new FastaReader(fasta));
     }
@@ -64,7 +64,8 @@ class FastaReaderIntegrationTest {
             assertEquals(0, entry2.get().leadingNsCount, "AF123455.2 leading Ns");
             assertEquals(0, entry2.get().trailingNsCount, "AF123455.2 trailing Ns");
 
-            String sequence1StartSlice = service.getSequenceSliceString(entry1.get().fastaReaderId, 1, 11, SequenceRangeOption.WITHOUT_EDGE_N_BASES);
+            String sequence1StartSlice = service.getSequenceSliceString(
+                    entry1.get().fastaReaderId, 1, 11, SequenceRangeOption.WITHOUT_EDGE_N_BASES);
             assertEquals("CCCGGCGCGGG", sequence1StartSlice);
 
             String sequence1EndSlice = service.getSequenceSliceString(
@@ -119,10 +120,12 @@ class FastaReaderIntegrationTest {
             assertEquals(0, entry2.get().leadingNsCount, "ID2 leading Ns");
             assertEquals(0, entry2.get().trailingNsCount, "ID2 trailing Ns");
 
-            String sequence1 = service.getSequenceSliceString(entry1.get().fastaReaderId, 1, entry1.get().totalBases, SequenceRangeOption.WHOLE_SEQUENCE);
+            String sequence1 = service.getSequenceSliceString(
+                    entry1.get().fastaReaderId, 1, entry1.get().totalBases, SequenceRangeOption.WHOLE_SEQUENCE);
             assertEquals("NNACACGTTTNn", sequence1);
 
-            String sequence2 = service.getSequenceSliceString(entry2.get().fastaReaderId, 1, entry2.get().totalBases, SequenceRangeOption.WHOLE_SEQUENCE);
+            String sequence2 = service.getSequenceSliceString(
+                    entry2.get().fastaReaderId, 1, entry2.get().totalBases, SequenceRangeOption.WHOLE_SEQUENCE);
             assertEquals("ACGTGGGG", sequence2);
 
             String sequence1withoutNbases = service.getSequenceSliceString(
@@ -133,7 +136,6 @@ class FastaReaderIntegrationTest {
             assertEquals("ACACGTTT", sequence1withoutNbases);
         }
     }
-
 
     @Test
     void gettingSequenceViaReaderGivesCorrectResult() throws IOException, FastaFileException {
@@ -151,7 +153,8 @@ class FastaReaderIntegrationTest {
 
             // stream whole sequence with the reader
             String streamedSequence;
-            try (java.io.Reader r = service.getSequenceSliceReader(entry1.get().fastaReaderId, 1, entry1.get().totalBases, SequenceRangeOption.WHOLE_SEQUENCE)) {
+            try (java.io.Reader r = service.getSequenceSliceReader(
+                    entry1.get().fastaReaderId, 1, entry1.get().totalBases, SequenceRangeOption.WHOLE_SEQUENCE)) {
                 StringBuilder sb = new StringBuilder();
                 char[] cbuf = new char[8192];
                 int n;
@@ -183,7 +186,8 @@ class FastaReaderIntegrationTest {
 
             // stream sequence with the reader
             String streamedSequence2;
-            try (java.io.Reader r = service.getSequenceSliceReader(entry2.get().fastaReaderId, 1, entry2.get().totalBases, SequenceRangeOption.WHOLE_SEQUENCE)) {
+            try (java.io.Reader r = service.getSequenceSliceReader(
+                    entry2.get().fastaReaderId, 1, entry2.get().totalBases, SequenceRangeOption.WHOLE_SEQUENCE)) {
                 StringBuilder sb = new StringBuilder();
                 char[] cbuf = new char[8192];
                 int n;
@@ -196,7 +200,6 @@ class FastaReaderIntegrationTest {
             assertEquals("ACGTGGGG", streamedSequence2);
         }
     }
-
 
     @Test
     void gettingStringAsAStringVsStreamProducesSameResultSlices() throws IOException, FastaFileException {
@@ -214,10 +217,12 @@ class FastaReaderIntegrationTest {
 
             for (long end = 2; end <= entry1.get().totalBases; end++) {
                 // get slice as string
-                String sequence = service.getSequenceSliceString(entry1.get().fastaReaderId, 1, end, SequenceRangeOption.WHOLE_SEQUENCE);
+                String sequence = service.getSequenceSliceString(
+                        entry1.get().fastaReaderId, 1, end, SequenceRangeOption.WHOLE_SEQUENCE);
                 // stream sequence with the reader
                 String streamedSequence;
-                try (java.io.Reader r = service.getSequenceSliceReader(entry1.get().fastaReaderId, 1, end, SequenceRangeOption.WHOLE_SEQUENCE)) {
+                try (java.io.Reader r = service.getSequenceSliceReader(
+                        entry1.get().fastaReaderId, 1, end, SequenceRangeOption.WHOLE_SEQUENCE)) {
                     StringBuilder sb = new StringBuilder();
                     char[] cbuf = new char[8192];
                     int n;
@@ -232,11 +237,12 @@ class FastaReaderIntegrationTest {
 
             for (long end = 2; end <= entry2.get().totalBases; end++) {
                 // get slice as string
-                String sequence2 = service.getSequenceSliceString(entry2.get().fastaReaderId, 1, end, SequenceRangeOption.WHOLE_SEQUENCE);
+                String sequence2 = service.getSequenceSliceString(
+                        entry2.get().fastaReaderId, 1, end, SequenceRangeOption.WHOLE_SEQUENCE);
                 // stream sequence with the reader
                 String streamedSequence2;
-                try (java.io.Reader r = service.getSequenceSliceReader( entry2.get().fastaReaderId, 1, end,
-                        SequenceRangeOption.WHOLE_SEQUENCE)) {
+                try (java.io.Reader r = service.getSequenceSliceReader(
+                        entry2.get().fastaReaderId, 1, end, SequenceRangeOption.WHOLE_SEQUENCE)) {
                     StringBuilder sb = new StringBuilder();
                     char[] cbuf = new char[8192];
                     int n;
@@ -275,7 +281,8 @@ class FastaReaderIntegrationTest {
             Optional<FastaEntry> entry1 = service.getFastaWithId(0L);
 
             // get first 16 chars
-            String sequenceStart = service.getSequenceSliceString(entry1.get().fastaReaderId, 1, 16, SequenceRangeOption.WHOLE_SEQUENCE);
+            String sequenceStart = service.getSequenceSliceString(
+                    entry1.get().fastaReaderId, 1, 16, SequenceRangeOption.WHOLE_SEQUENCE);
             assertEquals(sequenceStart, "GGGCTTTAAATGGCTC");
 
             // get last 16 chars
@@ -286,6 +293,5 @@ class FastaReaderIntegrationTest {
                     SequenceRangeOption.WHOLE_SEQUENCE);
             assertEquals(sequenceEnd, "GAATTCTGATGGCTGT");
         }
-
     }
 }

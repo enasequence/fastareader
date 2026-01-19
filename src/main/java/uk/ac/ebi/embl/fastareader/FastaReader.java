@@ -32,7 +32,8 @@ public final class FastaReader implements AutoCloseable {
 
     public List<FastaEntry> fastaEntries = new ArrayList<>();
 
-    private HashMap<Long, SequenceIndex> sequenceIndexes = new HashMap<>(); //maps fastaReaderId to the correct sequenceIndex
+    private HashMap<Long, SequenceIndex> sequenceIndexes =
+            new HashMap<>(); // maps fastaReaderId to the correct sequenceIndex
     private File file;
     private SequentialFastaFileReader reader;
 
@@ -69,7 +70,7 @@ public final class FastaReader implements AutoCloseable {
     }
 
     /** Return a sequence slice as a String (no EOLs) for [fromBase..toBase] inclusive. */
-    public String getSequenceSliceString(Long fastaReaderId, long fromBase, long toBase) throws FastaFileException{
+    public String getSequenceSliceString(Long fastaReaderId, long fromBase, long toBase) throws FastaFileException {
         return getSequenceSliceString(fastaReaderId, fromBase, toBase, SequenceRangeOption.WHOLE_SEQUENCE);
     }
 
@@ -166,7 +167,7 @@ public final class FastaReader implements AutoCloseable {
         }
     }
 
-    //----------------------------- helper methods for actually loading the fastaEntries ------------------
+    // ----------------------------- helper methods for actually loading the fastaEntries ------------------
 
     /**
      * Performs a one-time scan of the FASTA file to build in-memory sequence indexes.
