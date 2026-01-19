@@ -12,5 +12,5 @@ package uk.ac.ebi.embl.fastareader;
 
 public enum SequenceRangeOption {
     WHOLE_SEQUENCE,
-    WITHOUT_N_BASES
+    WITHOUT_EDGE_N_BASES
 }

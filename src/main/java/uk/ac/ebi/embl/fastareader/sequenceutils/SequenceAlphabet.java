@@ -38,7 +38,7 @@ public final class SequenceAlphabet {
     }
 
     public static SequenceAlphabet defaultNucleotideAlphabet() {
-        return new SequenceAlphabet("ACGTURYSWKMBDHVNacgturyswkmbdhvn-.*", "\n\r");
+        return new SequenceAlphabet("ACGTRYSWKMBDHVNacgtryswkmbdhvn", "\n\r");
     }
 
     public String describeAllowed() {

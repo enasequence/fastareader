@@ -12,15 +12,12 @@ package uk.ac.ebi.embl.fastareader;
 
 import lombok.Getter;
 import lombok.Setter;
-import uk.ac.ebi.embl.fastareader.headerutils.FastaHeader;
 import uk.ac.ebi.embl.fastareader.sequenceutils.SequenceIndex;
 
 @Getter
 @Setter
 class FastaEntryMetadata {
-    String submissionId;
-    String accessionId;
-    FastaHeader header;
+    String headerLine;
     // information needed for accessing the file
     long fastaStartByte; // position of '>' in the file
     SequenceIndex sequenceIndex; // a smart index for querying ranges in the file
