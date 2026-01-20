@@ -10,7 +10,6 @@
  */
 package uk.ac.ebi.embl.fastareader;
 
-import java.math.BigInteger;
 import lombok.Getter;
 import lombok.Setter;
 
@@ -23,5 +22,5 @@ public class FastaEntry {
     public long totalBasesWithoutNBases;
     public long leadingNsCount;
     public long trailingNsCount;
-    public BigInteger totalNBases;
+    public long totalNBases;
 }
