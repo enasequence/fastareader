@@ -10,6 +10,7 @@
  */
 package uk.ac.ebi.embl.fastareader.sequenceutils;
 
+import java.math.BigInteger;
 import java.util.ArrayList;
 import java.util.Collections;
 import java.util.List;
@@ -22,6 +23,7 @@ public final class SequenceIndex {
     public long endNBasesCount;
     private final List<LineEntry> lines;
     public long nextHeaderByte; // byte offset of next '>' at line start, or fileSize (EOF)
+    public BigInteger totalNBases;
 
     public SequenceIndex(
             long firstBaseByte,
@@ -29,13 +31,15 @@ public final class SequenceIndex {
             long lastBaseByte,
             long endNBasesCount,
             List<LineEntry> lines,
-            long nextHeader) {
+            long nextHeader,
+            BigInteger totalNBases) {
         this.firstBaseByte = firstBaseByte;
         this.startNBasesCount = startNBasesCount;
         this.lastBaseByte = lastBaseByte;
         this.endNBasesCount = endNBasesCount;
         this.lines = new ArrayList<>(lines);
         this.nextHeaderByte = nextHeader;
+        this.totalNBases = totalNBases;
     }
 
     public List<LineEntry> linesView() {
