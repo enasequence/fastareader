@@ -10,10 +10,9 @@
  */
 package uk.ac.ebi.embl.fastareader;
 
+import java.math.BigInteger;
 import lombok.Getter;
 import lombok.Setter;
-
-import java.math.BigInteger;
 
 @Getter
 @Setter

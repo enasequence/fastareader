@@ -116,8 +116,9 @@ public final class SequenceIndexBuilder {
                 continue;
             } else if (alphabet.isAllowedBase(b)) {
                 char byteTranslation = (char) (b & 0x7F);
-                if(alphabet.isNBase(b)){
-                    s.totalNBases = s.totalNBases.add(BigInteger.ONE);}
+                if (alphabet.isNBase(b)) {
+                    s.totalNBases = s.totalNBases.add(BigInteger.ONE);
+                }
                 observeBase(abs, s);
             } else {
                 throw new FastaFileException(String.format(

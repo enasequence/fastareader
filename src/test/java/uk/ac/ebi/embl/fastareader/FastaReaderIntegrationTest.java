@@ -122,7 +122,7 @@ class FastaReaderIntegrationTest {
 
             String sequence1 = service.getSequenceSliceString(
                     entry1.get().fastaReaderId, 1, entry1.get().totalBases, SequenceRangeOption.WHOLE_SEQUENCE);
-            assertEquals("NNACACGTTTNn", sequence1);
+            assertEquals("NNACACGTTTNN", sequence1);
 
             String sequence2 = service.getSequenceSliceString(
                     entry2.get().fastaReaderId, 1, entry2.get().totalBases, SequenceRangeOption.WHOLE_SEQUENCE);
@@ -164,7 +164,7 @@ class FastaReaderIntegrationTest {
                 streamedSequence = sb.toString();
             }
             // compare
-            assertEquals("NNACACGTTTNn", streamedSequence);
+            assertEquals("NNACACGTTTNN", streamedSequence);
 
             // stream whole sequence with the reader
             String streamedSequenceWithoutNbases;

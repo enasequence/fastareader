@@ -81,7 +81,7 @@ public class SequentialFastaFileReader implements AutoCloseable {
             remain -= n;
             off += n;
         }
-        return sb.toString();
+        return sb.toString().toUpperCase();
     }
 
     /** Char-stream view over [span.start, span.endEx): ASCII decode, skip LF/CR.
@@ -128,7 +128,9 @@ public class SequentialFastaFileReader implements AutoCloseable {
                     while (buf.hasRemaining() && out < maximumNumberOfCharsToRead) {
                         byte b = buf.get();
                         if (alphabet.isNonSequenceAllowedChar(b)) continue; // skip irrelevant bytes
-                        characterBuffer[startingWriteIndexInCharacterBuffer + out] = (char) (b & 0xFF);
+                        char c = Character.toUpperCase((char) (b & 0xFF)); // decode byte and shift it to uppercase
+                        characterBuffer[startingWriteIndexInCharacterBuffer + out] = c;
+                        ;
                         out++;
                     }
                 }

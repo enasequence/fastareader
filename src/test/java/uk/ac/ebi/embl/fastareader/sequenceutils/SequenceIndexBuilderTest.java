@@ -109,7 +109,7 @@ public class SequenceIndexBuilderTest {
             // Edge N counting: only first and last lines are inspected
             assertEquals(2, idx.startNBasesCount, "leading Ns only from first sequence line");
             assertEquals(2, idx.endNBasesCount, "trailing Ns only from last sequence line");
-            //assert total count of N bases is correctly done
+            // assert total count of N bases is correctly done
             assertEquals(BigInteger.valueOf(4), idx.totalNBases);
 
             // nextHeaderByte should point to '>' of NEXT header
@@ -142,7 +142,7 @@ public class SequenceIndexBuilderTest {
             assertEquals(2, idx.startNBasesCount);
             // no trailing Ns on last line (all 'g')
             assertEquals(0, idx.endNBasesCount);
-            //assert total count of N bases is correctly done
+            // assert total count of N bases is correctly done
             assertEquals(BigInteger.valueOf(2), idx.totalNBases);
 
             // nextHeader should be at the '>' byte of H2
@@ -175,7 +175,7 @@ public class SequenceIndexBuilderTest {
             assertEquals(33, idx.startNBasesCount);
             // trailing Ns until the start
             assertEquals(33, idx.endNBasesCount);
-            //assert total count of N bases is correctly done
+            // assert total count of N bases is correctly done
             assertEquals(BigInteger.valueOf(idx.totalBases()), idx.totalNBases);
 
             // nextHeader should be at the '>' byte of H2
@@ -212,7 +212,7 @@ public class SequenceIndexBuilderTest {
             // Edge N counts: only first and last lines considered
             assertEquals(1, idx.startNBasesCount, "only first line leading Ns");
             assertEquals(1, idx.endNBasesCount, "only last line trailing Ns");
-            //assert total count of N bases is correctly done
+            // assert total count of N bases is correctly done
             assertEquals(BigInteger.valueOf(6), idx.totalNBases);
 
             // Middle line of Ns shouldn't change edge counts
