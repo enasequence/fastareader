@@ -17,12 +17,13 @@ import java.util.List;
 public final class SequenceIndex {
 
     public long firstBaseByte; // -1 if empty
-    public long startNBasesCount;
     public long lastBaseByte; // -1 if empty
-    public long endNBasesCount;
     private final List<LineEntry> lines;
     public long nextHeaderByte; // byte offset of next '>' at line start, or fileSize (EOF)
-    public long totalNBases;
+    // N bases related counts
+    public long startNBasesCount;
+    public long endNBasesCount;
+    public long totalNBasesCount;
 
     public SequenceIndex(
             long firstBaseByte,
@@ -31,14 +32,14 @@ public final class SequenceIndex {
             long endNBasesCount,
             List<LineEntry> lines,
             long nextHeader,
-            long totalNBases) {
+            long totalNBasesCount) {
         this.firstBaseByte = firstBaseByte;
         this.startNBasesCount = startNBasesCount;
         this.lastBaseByte = lastBaseByte;
         this.endNBasesCount = endNBasesCount;
         this.lines = new ArrayList<>(lines);
         this.nextHeaderByte = nextHeader;
-        this.totalNBases = totalNBases;
+        this.totalNBasesCount = totalNBasesCount;
     }
 
     public List<LineEntry> linesView() {

@@ -22,5 +22,5 @@ public class FastaEntry {
     public long totalBasesWithoutNBases;
     public long leadingNsCount;
     public long trailingNsCount;
-    public long totalNBases;
+    public long totalNBasesCount;
 }

@@ -60,7 +60,7 @@ public final class SequenceIndexBuilder {
             endN = countTrailingNs(firstBaseByte, lastBaseByte); // count continuous Ns from the end
         }
 
-        return new SequenceIndex(firstBaseByte, startN, lastBaseByte, endN, lines, s.nextHdr, s.totalNBases);
+        return new SequenceIndex(firstBaseByte, startN, lastBaseByte, endN, lines, s.nextHdr, s.totalNBasesCount);
     }
 
     // =====================================================================
@@ -77,7 +77,7 @@ public final class SequenceIndexBuilder {
         long lineLastByte = -1; // last  allowed base byte in current line
         long basesSoFar = 0;
         long basesInLine = 0;
-        long totalNBases = 0;
+        long totalNBasesCount = 0;
 
         final ArrayList<LineEntry> lines = new ArrayList<>(256);
 
@@ -116,7 +116,7 @@ public final class SequenceIndexBuilder {
             } else if (alphabet.isAllowedBase(b)) {
                 char byteTranslation = (char) (b & 0x7F);
                 if (alphabet.isNBase(b)) {
-                    s.totalNBases++;
+                    s.totalNBasesCount++;
                 }
                 observeBase(abs, s);
             } else {
