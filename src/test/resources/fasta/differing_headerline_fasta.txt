@@ -1,0 +1,8 @@
+>MCHU - Calmodulin - Human, rabbit, bovine, rat, and chicken
+NNAC
+ACGT
+TTNn
+
+> ID2 | {"description":"x", "molecule_type":"dna", "topology":"linear"}
+ACGTG
+GGG

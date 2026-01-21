@@ -12,16 +12,15 @@ package uk.ac.ebi.embl.fastareader;
 
 import lombok.Getter;
 import lombok.Setter;
-import uk.ac.ebi.embl.fastareader.headerutils.FastaHeader;
 
 @Getter
 @Setter
 public class FastaEntry {
-    public String submissionId;
-    public String accessionId;
-    public FastaHeader header; // json info
+    public long fastaReaderId;
+    public String headerLine; // id+json info
     public long totalBases;
     public long totalBasesWithoutNBases;
     public long leadingNsCount;
     public long trailingNsCount;
+    public long totalNBasesCount;
 }

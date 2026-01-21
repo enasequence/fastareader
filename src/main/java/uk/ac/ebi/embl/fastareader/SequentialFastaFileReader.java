@@ -15,8 +15,6 @@ import java.nio.ByteBuffer;
 import java.nio.channels.FileChannel;
 import java.util.*;
 import uk.ac.ebi.embl.fastareader.exception.FastaFileException;
-import uk.ac.ebi.embl.fastareader.headerutils.JsonHeaderParser;
-import uk.ac.ebi.embl.fastareader.headerutils.ParsedHeader;
 import uk.ac.ebi.embl.fastareader.sequenceutils.*;
 
 public class SequentialFastaFileReader implements AutoCloseable {
@@ -28,19 +26,17 @@ public class SequentialFastaFileReader implements AutoCloseable {
 
     private final FileChannel channel;
     private final long fileSize;
-    private final JsonHeaderParser headerParser;
     private final SequenceAlphabet alphabet;
 
     public SequentialFastaFileReader(File file) throws IOException {
-        this(file, new JsonHeaderParser(), SequenceAlphabet.defaultNucleotideAlphabet());
+        this(file, SequenceAlphabet.defaultNucleotideAlphabet());
     }
 
-    public SequentialFastaFileReader(File file, JsonHeaderParser parser, SequenceAlphabet alphabet) throws IOException {
+    public SequentialFastaFileReader(File file, SequenceAlphabet alphabet) throws IOException {
         Objects.requireNonNull(file, "Input FASTA file is null");
         if (!file.exists()) throw new FileNotFoundException(file.getAbsolutePath());
         if (file.isDirectory()) throw new FileNotFoundException("Directory: " + file.getAbsolutePath());
         if (!file.canRead()) throw new IllegalArgumentException("No read permission: " + file.getAbsolutePath());
-        this.headerParser = Objects.requireNonNull(parser, "parser");
         this.alphabet = Objects.requireNonNull(alphabet, "alphabet");
         this.channel = new FileInputStream(file).getChannel();
         this.fileSize = channel.size();
@@ -85,7 +81,7 @@ public class SequentialFastaFileReader implements AutoCloseable {
             remain -= n;
             off += n;
         }
-        return sb.toString();
+        return sb.toString().toUpperCase();
     }
 
     /** Char-stream view over [span.start, span.endEx): ASCII decode, skip LF/CR.
@@ -132,7 +128,9 @@ public class SequentialFastaFileReader implements AutoCloseable {
                     while (buf.hasRemaining() && out < maximumNumberOfCharsToRead) {
                         byte b = buf.get();
                         if (alphabet.isNonSequenceAllowedChar(b)) continue; // skip irrelevant bytes
-                        characterBuffer[startingWriteIndexInCharacterBuffer + out] = (char) (b & 0xFF);
+                        char c = Character.toUpperCase((char) (b & 0xFF)); // decode byte and shift it to uppercase
+                        characterBuffer[startingWriteIndexInCharacterBuffer + out] = c;
+                        ;
                         out++;
                     }
                 }
@@ -197,7 +195,6 @@ public class SequentialFastaFileReader implements AutoCloseable {
             long headerPos = headerPosOpt.getAsLong();
             String headerLine = readHeaderLine(headerPos);
             if (headerLine == null) throw new FastaFileException("Header is malformed at byte " + headerPos);
-            ParsedHeader ph = headerParser.parse(headerLine);
 
             long sequenceStartPos = channel.position(); // first byte after header line is the sequence position
             SequenceIndexBuilder sib = new SequenceIndexBuilder(channel, fileSize, alphabet);
@@ -207,8 +204,7 @@ public class SequentialFastaFileReader implements AutoCloseable {
             channel.position(sequenceStartPos);
 
             FastaEntryMetadata e = new FastaEntryMetadata();
-            e.setSubmissionId(ph.getId());
-            e.setHeader(ph.getHeader());
+            e.setHeaderLine(headerLine);
             e.setFastaStartByte(headerPos);
             e.setSequenceIndex(index);
 
@@ -259,7 +255,6 @@ public class SequentialFastaFileReader implements AutoCloseable {
     /** Reads one ASCII line from input position, assuming the position handed to it contains '>', advances past LF or to EOF. */
     private String readHeaderLine(long from) throws IOException {
         channel.position(from);
-
         long scanPos = channel.position();
         if (scanPos >= fileSize) return null;
 

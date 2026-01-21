@@ -18,6 +18,7 @@ import lombok.Getter;
 import lombok.Setter;
 import uk.ac.ebi.embl.fastareader.exception.FastaFileException;
 import uk.ac.ebi.embl.fastareader.sequenceutils.ByteSpan;
+import uk.ac.ebi.embl.fastareader.sequenceutils.SequenceAlphabet;
 import uk.ac.ebi.embl.fastareader.sequenceutils.SequenceIndex;
 
 /**
@@ -31,13 +32,23 @@ public final class FastaReader implements AutoCloseable {
 
     public List<FastaEntry> fastaEntries = new ArrayList<>();
 
-    private HashMap<String, SequenceIndex> sequenceIndexes = new HashMap<>();
+    private HashMap<Long, SequenceIndex> sequenceIndexes =
+            new HashMap<>(); // maps fastaReaderId to the correct sequenceIndex
     private File file;
     private SequentialFastaFileReader reader;
 
+    /** Initializes FASTA reader, skimming through the whole file right away. */
     public FastaReader(File fastaFile) throws FastaFileException, IOException {
+        this(fastaFile, SequenceAlphabet.defaultNucleotideAlphabet());
+    }
+
+    /**
+     * Initializes FASTA reader, skimming through the whole file right away.
+     * Adds the option to define your own desired SequenceAlphabet and a list of tolerable characters in the sequence (usually eg. \n, \r)
+     * */
+    public FastaReader(File fastaFile, SequenceAlphabet alphabet) throws FastaFileException, IOException {
         this.file = Objects.requireNonNull(fastaFile, "fastaFile");
-        this.reader = new SequentialFastaFileReader(fastaFile);
+        this.reader = new SequentialFastaFileReader(fastaFile, alphabet);
         this.sequenceIndexes = new HashMap<>();
         this.fastaEntries = new ArrayList<>();
 
@@ -46,27 +57,34 @@ public final class FastaReader implements AutoCloseable {
 
     // ---------------------------- queries ----------------------------
 
-    public Optional<FastaEntry> setAccessionId(String submissionId, String accessionId) throws FastaFileException {
-        Optional<FastaEntry> target = fastaEntries.stream()
-                .filter(entry -> entry.getSubmissionId().equals(submissionId))
-                .findFirst();
-        target.ifPresent(entry -> entry.setAccessionId(accessionId));
-        return target;
+    /** Returns FASTA entries, each one with a unique fastaReaderId, header line string and basic sequence information */
+    public List<FastaEntry> getFastaEntry() {
+        return Collections.unmodifiableList(fastaEntries);
     }
 
-    public Optional<FastaEntry> getFastaWithSubmissionId(String submissionId) throws FastaFileException {
+    /** Gets a specific FASTA entry with the appropriate fastaReaderId **/
+    public Optional<FastaEntry> getFastaWithId(Long fastaReaderId) throws FastaFileException {
         return fastaEntries.stream()
-                .filter(entry -> entry.getSubmissionId().equals(submissionId))
+                .filter(entry -> entry.getFastaReaderId() == fastaReaderId)
                 .findFirst();
     }
 
     /** Return a sequence slice as a String (no EOLs) for [fromBase..toBase] inclusive. */
-    public String getSequenceSliceString(SequenceRangeOption option, String submissionId, long fromBase, long toBase)
+    public String getSequenceSliceString(Long fastaReaderId, long fromBase, long toBase) throws FastaFileException {
+        return getSequenceSliceString(fastaReaderId, fromBase, toBase, SequenceRangeOption.WHOLE_SEQUENCE);
+    }
+
+    /**
+     *  Return a sequence slice as a String (no EOLs) for [fromBase..toBase] inclusive.
+     *
+     * You can choose whether to read the whole sequence or the interval not including edge N's using the last parameter.
+     * */
+    public String getSequenceSliceString(Long fastaReaderId, long fromBase, long toBase, SequenceRangeOption option)
             throws FastaFileException {
         ensureFileReaderOpen();
-        SequenceIndex index = sequenceIndexes.get(submissionId);
+        SequenceIndex index = sequenceIndexes.get(fastaReaderId);
         if (index == null) {
-            throw new FastaFileException("No sequence index found for submissionId " + submissionId);
+            throw new FastaFileException("No sequence index found for submissionId " + fastaReaderId);
         }
 
         final ByteSpan span;
@@ -74,7 +92,7 @@ public final class FastaReader implements AutoCloseable {
             case WHOLE_SEQUENCE:
                 span = index.byteSpanForBaseRangeIncludingEdgeNBases(fromBase, toBase);
                 break;
-            case WITHOUT_N_BASES:
+            case WITHOUT_EDGE_N_BASES:
                 span = index.byteSpanForBaseRange(fromBase, toBase);
                 break;
             default:
@@ -85,7 +103,7 @@ public final class FastaReader implements AutoCloseable {
             return reader.getSequenceSliceString(span);
         } catch (IOException ioe) {
             throw new FastaFileException(
-                    "I/O while reading slice for " + submissionId + " bytes " + span.start + ".." + (span.endEx - 1),
+                    "I/O while reading slice for " + fastaReaderId + " bytes " + span.start + ".." + (span.endEx - 1),
                     ioe);
         }
     }
@@ -95,12 +113,23 @@ public final class FastaReader implements AutoCloseable {
      * Uses the cached index to translate bases -> bytes, then asks the reader to stream
      * ASCII bytes while skipping '\n' and '\r' on the fly.
      */
-    public Reader getSequenceSliceReader(SequenceRangeOption option, String submissionId, long fromBase, long toBase)
+    public Reader getSequenceSliceReader(Long fastaReaderId, long fromBase, long toBase) throws FastaFileException {
+        return getSequenceSliceReader(fastaReaderId, fromBase, toBase, SequenceRangeOption.WHOLE_SEQUENCE);
+    }
+
+    /**
+     * Return a sequence slice for reader [fromBase..toBase] (1-based, inclusive) for the given ID.
+     * Uses the cached index to translate bases -> bytes, then asks the reader to stream
+     * ASCII bytes while skipping '\n' and '\r' on the fly.
+     *
+     * You can choose whether to read the whole sequence or the interval not including edge N's using the last parameter.
+     */
+    public Reader getSequenceSliceReader(Long fastaReaderId, long fromBase, long toBase, SequenceRangeOption option)
             throws FastaFileException {
         ensureFileReaderOpen();
-        var index = sequenceIndexes.get(submissionId);
+        var index = sequenceIndexes.get(fastaReaderId);
         if (index == null) {
-            throw new FastaFileException("No sequence index found for submissionId " + submissionId);
+            throw new FastaFileException("No sequence index found for submissionId " + fastaReaderId);
         }
 
         ByteSpan span;
@@ -108,7 +137,7 @@ public final class FastaReader implements AutoCloseable {
             case WHOLE_SEQUENCE:
                 span = index.byteSpanForBaseRangeIncludingEdgeNBases(fromBase, toBase);
                 break;
-            case WITHOUT_N_BASES:
+            case WITHOUT_EDGE_N_BASES:
                 span = index.byteSpanForBaseRange(fromBase, toBase);
                 break;
             default:
@@ -129,6 +158,17 @@ public final class FastaReader implements AutoCloseable {
         loadEntries();
     }
 
+    /** Close the reader. Safe to call multiple times. */
+    @Override
+    public void close() throws IOException {
+        if (reader != null) {
+            reader.close();
+            reader = null;
+        }
+    }
+
+    // ----------------------------- helper methods for actually loading the fastaEntries ------------------
+
     /**
      * Performs a one-time scan of the FASTA file to build in-memory sequence indexes.
      * The cached indexes are later used to translate base ranges into byte spans for efficient random-access reads.
@@ -139,13 +179,15 @@ public final class FastaReader implements AutoCloseable {
     private void loadEntries() throws IOException, FastaFileException {
         List<FastaEntryMetadata> readEntries = reader.readAll();
 
+        long currentFastaId = 0;
         for (var entry : readEntries) {
             FastaEntry fastaEntry = new FastaEntry();
-            fastaEntry.setSubmissionId(entry.getSubmissionId());
-            fastaEntry.setHeader(entry.getHeader());
+            fastaEntry.setFastaReaderId(currentFastaId);
+            fastaEntry.setHeaderLine(entry.getHeaderLine());
             fastaEntry.setTotalBases(entry.sequenceIndex.totalBases());
             fastaEntry.setLeadingNsCount(entry.sequenceIndex.startNBasesCount);
             fastaEntry.setTrailingNsCount(entry.sequenceIndex.endNBasesCount);
+            fastaEntry.setTotalNBasesCount(entry.sequenceIndex.totalNBasesCount);
 
             long adjustedBases = entry.sequenceIndex.totalBases()
                     - entry.sequenceIndex.startNBasesCount
@@ -154,16 +196,9 @@ public final class FastaReader implements AutoCloseable {
             fastaEntry.setTotalBasesWithoutNBases(adjustedBases);
 
             fastaEntries.add(fastaEntry);
-            sequenceIndexes.put(entry.getSubmissionId(), entry.sequenceIndex);
-        }
-    }
+            sequenceIndexes.put(fastaEntry.getFastaReaderId(), entry.sequenceIndex);
 
-    /** Close the reader. Safe to call multiple times. */
-    @Override
-    public void close() throws IOException {
-        if (reader != null) {
-            reader.close();
-            reader = null;
+            currentFastaId++;
         }
     }
 

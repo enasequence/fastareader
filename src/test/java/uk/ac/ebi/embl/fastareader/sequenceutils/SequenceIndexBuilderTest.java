@@ -108,6 +108,8 @@ public class SequenceIndexBuilderTest {
             // Edge N counting: only first and last lines are inspected
             assertEquals(2, idx.startNBasesCount, "leading Ns only from first sequence line");
             assertEquals(2, idx.endNBasesCount, "trailing Ns only from last sequence line");
+            // assert total count of N bases is correctly done
+            assertEquals(4, idx.totalNBasesCount);
 
             // nextHeaderByte should point to '>' of NEXT header
             long expectedNextHeader = header.length() + l1.length() + l2.length() + l3.length() + empties.length();
@@ -139,6 +141,8 @@ public class SequenceIndexBuilderTest {
             assertEquals(2, idx.startNBasesCount);
             // no trailing Ns on last line (all 'g')
             assertEquals(0, idx.endNBasesCount);
+            // assert total count of N bases is correctly done
+            assertEquals(2, idx.totalNBasesCount);
 
             // nextHeader should be at the '>' byte of H2
             long expectedNext = fasta.lastIndexOf(">H2\n"); // ascii index
@@ -170,6 +174,8 @@ public class SequenceIndexBuilderTest {
             assertEquals(33, idx.startNBasesCount);
             // trailing Ns until the start
             assertEquals(33, idx.endNBasesCount);
+            // assert total count of N bases is correctly done
+            assertEquals(idx.totalBases(), idx.totalNBasesCount);
 
             // nextHeader should be at the '>' byte of H2
             long expectedNext = fasta.lastIndexOf(">H2\n"); // ascii index
@@ -205,6 +211,8 @@ public class SequenceIndexBuilderTest {
             // Edge N counts: only first and last lines considered
             assertEquals(1, idx.startNBasesCount, "only first line leading Ns");
             assertEquals(1, idx.endNBasesCount, "only last line trailing Ns");
+            // assert total count of N bases is correctly done
+            assertEquals(6, idx.totalNBasesCount);
 
             // Middle line of Ns shouldn't change edge counts
             assertEquals(idx.linesView().get(1).lengthBases(), 4);

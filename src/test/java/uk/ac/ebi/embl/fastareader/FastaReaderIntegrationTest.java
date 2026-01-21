@@ -24,17 +24,19 @@ import uk.ac.ebi.embl.fastareader.exception.FastaFileException;
 class FastaReaderIntegrationTest {
 
     @Test
-    void readingMalformedFastaJsonFailure() throws IOException {
-        File fasta = FastaTestResources.file("fasta", "malformed_json_fasta.txt");
+    void doesNotTolerateImproperHeaders() throws IOException {
+        // by improper headers, i mean ones that do not start in > and end with a newline as per the general spec */
+        File fasta = FastaTestResources.file("fasta", "malformed_headerline_fasta.txt");
 
         assertThrows(FastaFileException.class, () -> new FastaReader(fasta));
     }
 
     @Test
-    void readingMalformedFastaSequenceFailure() throws IOException {
-        File fasta = FastaTestResources.file("fasta", "malformed_fasta.txt");
+    void toleratesDifferentFastaHeaders() throws IOException {
+        File fasta = FastaTestResources.file(
+                "fasta", "differing_headerline_fasta.txt"); // this example has varying fasta headers
 
-        assertThrows(FastaFileException.class, () -> new FastaReader(fasta));
+        assertDoesNotThrow(() -> new FastaReader(fasta));
     }
 
     @Test
@@ -45,13 +47,13 @@ class FastaReaderIntegrationTest {
             List<FastaEntry> entries = service.getFastaEntries();
             assertEquals(2, entries.size(), "should parse 2 FASTA entries");
 
-            Set<String> ids = entries.stream().map(e -> e.getSubmissionId()).collect(Collectors.toSet());
-            assertTrue(ids.contains("AF123456.1"));
-            assertTrue(ids.contains("AF123455.2"));
+            Set<Long> ids = entries.stream().map(FastaEntry::getFastaReaderId).collect(Collectors.toSet());
+            assertTrue(ids.contains(0L));
+            assertTrue(ids.contains(1L));
 
-            Optional<FastaEntry> entry1 = service.getFastaWithSubmissionId("AF123456.1");
-            Optional<FastaEntry> entry2 = service.getFastaWithSubmissionId("AF123455.2");
-            Optional<FastaEntry> imaginaryEntry = service.getFastaWithSubmissionId("ID3");
+            Optional<FastaEntry> entry1 = service.getFastaWithId(0L);
+            Optional<FastaEntry> entry2 = service.getFastaWithId(1L);
+            Optional<FastaEntry> imaginaryEntry = service.getFastaWithId(2L);
             assertTrue(entry1.isPresent(), "index for AF123456.1 must exist");
             assertTrue(entry2.isPresent(), "index for AF123455.2 must exist");
             assertTrue(imaginaryEntry.isEmpty(), "index for ID3 must not exist");
@@ -63,21 +65,21 @@ class FastaReaderIntegrationTest {
             assertEquals(0, entry2.get().trailingNsCount, "AF123455.2 trailing Ns");
 
             String sequence1StartSlice = service.getSequenceSliceString(
-                    SequenceRangeOption.WITHOUT_N_BASES, entry1.get().submissionId, 1, 11);
+                    entry1.get().fastaReaderId, 1, 11, SequenceRangeOption.WITHOUT_EDGE_N_BASES);
             assertEquals("CCCGGCGCGGG", sequence1StartSlice);
 
             String sequence1EndSlice = service.getSequenceSliceString(
-                    SequenceRangeOption.WITHOUT_N_BASES,
-                    entry1.get().submissionId,
+                    entry1.get().fastaReaderId,
                     entry1.get().totalBasesWithoutNBases - 9,
-                    entry1.get().totalBasesWithoutNBases);
+                    entry1.get().totalBasesWithoutNBases,
+                    SequenceRangeOption.WITHOUT_EDGE_N_BASES);
             assertEquals("AAAAAAAAAA", sequence1EndSlice);
 
             String sequence2withoutNbases = service.getSequenceSliceString(
-                    SequenceRangeOption.WITHOUT_N_BASES,
-                    entry2.get().submissionId,
+                    entry2.get().fastaReaderId,
                     1,
-                    entry2.get().totalBasesWithoutNBases);
+                    entry2.get().totalBasesWithoutNBases,
+                    SequenceRangeOption.WITHOUT_EDGE_N_BASES);
             assertEquals(
                     "CCCGGCGCGGGCAAGAAGCTGCCGCGTCTGCCCAAGTGTGCCCGCTGCCGCAACCACGGC"
                             + "TACTCCTCGCCGCTGAAGGGGCACAAGCGGTTCTGCATGTGGCGGGACTGCCAGTGCAAG"
@@ -101,54 +103,36 @@ class FastaReaderIntegrationTest {
 
             assertEquals(2, entries.size(), "should parse 2 FASTA entries");
 
-            Set<String> ids = entries.stream().map(e -> e.getSubmissionId()).collect(Collectors.toSet());
+            Set<Long> ids = entries.stream().map(FastaEntry::getFastaReaderId).collect(Collectors.toSet());
+            assertTrue(ids.contains(0L));
+            assertTrue(ids.contains(1L));
 
-            assertTrue(ids.contains("ID1"));
-
-            assertTrue(ids.contains("ID2"));
-
-            Optional<FastaEntry> entry1 = service.getFastaWithSubmissionId("ID1");
-            Optional<FastaEntry> entry2 = service.getFastaWithSubmissionId("ID2");
-            Optional<FastaEntry> imaginaryEntry = service.getFastaWithSubmissionId("ID3");
-
+            Optional<FastaEntry> entry1 = service.getFastaWithId(0L);
+            Optional<FastaEntry> entry2 = service.getFastaWithId(1L);
+            Optional<FastaEntry> imaginaryEntry = service.getFastaWithId(123L);
             assertTrue(entry1.isPresent(), "index for ID1 must exist");
-
             assertTrue(entry2.isPresent(), "index for ID2 must exist");
-
             assertTrue(imaginaryEntry.isEmpty(), "index for ID3 must not exist");
-
-            service.setAccessionId("ID1", "asc1");
-            service.setAccessionId("ID2", "asc2");
-
-            assertEquals(entry1.get().accessionId, "asc1");
-
-            assertEquals(entry2.get().accessionId, "asc2");
 
             // From the sample file above:
             assertEquals(2, entry1.get().leadingNsCount, "ID1 leading Ns");
-
             assertEquals(2, entry1.get().trailingNsCount, "ID1 trailing Ns");
-
             assertEquals(0, entry2.get().leadingNsCount, "ID2 leading Ns");
-
             assertEquals(0, entry2.get().trailingNsCount, "ID2 trailing Ns");
 
             String sequence1 = service.getSequenceSliceString(
-                    SequenceRangeOption.WHOLE_SEQUENCE, entry1.get().submissionId, 1, entry1.get().totalBases);
-
-            assertEquals("NNACACGTTTNn", sequence1);
+                    entry1.get().fastaReaderId, 1, entry1.get().totalBases, SequenceRangeOption.WHOLE_SEQUENCE);
+            assertEquals("NNACACGTTTNN", sequence1);
 
             String sequence2 = service.getSequenceSliceString(
-                    SequenceRangeOption.WHOLE_SEQUENCE, entry2.get().submissionId, 1, entry2.get().totalBases);
-
+                    entry2.get().fastaReaderId, 1, entry2.get().totalBases, SequenceRangeOption.WHOLE_SEQUENCE);
             assertEquals("ACGTGGGG", sequence2);
 
             String sequence1withoutNbases = service.getSequenceSliceString(
-                    SequenceRangeOption.WITHOUT_N_BASES,
-                    entry1.get().submissionId,
+                    entry1.get().fastaReaderId,
                     1,
-                    entry1.get().totalBasesWithoutNBases);
-
+                    entry1.get().totalBasesWithoutNBases,
+                    SequenceRangeOption.WITHOUT_EDGE_N_BASES);
             assertEquals("ACACGTTT", sequence1withoutNbases);
         }
     }
@@ -161,16 +145,16 @@ class FastaReaderIntegrationTest {
             List<FastaEntry> entries = service.getFastaEntries();
             assertEquals(2, entries.size(), "should parse 2 FASTA entries");
 
-            Set<String> ids = entries.stream().map(e -> e.getSubmissionId()).collect(Collectors.toSet());
-            assertTrue(ids.contains("ID1"));
-            assertTrue(ids.contains("ID2"));
-            Optional<FastaEntry> entry1 = service.getFastaWithSubmissionId("ID1");
-            Optional<FastaEntry> entry2 = service.getFastaWithSubmissionId("ID2");
+            Set<Long> ids = entries.stream().map(FastaEntry::getFastaReaderId).collect(Collectors.toSet());
+            assertTrue(ids.contains(0L));
+            assertTrue(ids.contains(1L));
+            Optional<FastaEntry> entry1 = service.getFastaWithId(0L);
+            Optional<FastaEntry> entry2 = service.getFastaWithId(1L);
 
             // stream whole sequence with the reader
             String streamedSequence;
             try (java.io.Reader r = service.getSequenceSliceReader(
-                    SequenceRangeOption.WHOLE_SEQUENCE, entry1.get().submissionId, 1, entry1.get().totalBases)) {
+                    entry1.get().fastaReaderId, 1, entry1.get().totalBases, SequenceRangeOption.WHOLE_SEQUENCE)) {
                 StringBuilder sb = new StringBuilder();
                 char[] cbuf = new char[8192];
                 int n;
@@ -180,15 +164,15 @@ class FastaReaderIntegrationTest {
                 streamedSequence = sb.toString();
             }
             // compare
-            assertEquals("NNACACGTTTNn", streamedSequence);
+            assertEquals("NNACACGTTTNN", streamedSequence);
 
             // stream whole sequence with the reader
             String streamedSequenceWithoutNbases;
             try (java.io.Reader r = service.getSequenceSliceReader(
-                    SequenceRangeOption.WITHOUT_N_BASES,
-                    entry1.get().submissionId,
+                    entry1.get().fastaReaderId,
                     1,
-                    entry1.get().totalBasesWithoutNBases)) {
+                    entry1.get().totalBasesWithoutNBases,
+                    SequenceRangeOption.WITHOUT_EDGE_N_BASES)) {
                 StringBuilder sb = new StringBuilder();
                 char[] cbuf = new char[8192];
                 int n;
@@ -203,7 +187,7 @@ class FastaReaderIntegrationTest {
             // stream sequence with the reader
             String streamedSequence2;
             try (java.io.Reader r = service.getSequenceSliceReader(
-                    SequenceRangeOption.WHOLE_SEQUENCE, entry2.get().submissionId, 1, entry2.get().totalBases)) {
+                    entry2.get().fastaReaderId, 1, entry2.get().totalBases, SequenceRangeOption.WHOLE_SEQUENCE)) {
                 StringBuilder sb = new StringBuilder();
                 char[] cbuf = new char[8192];
                 int n;
@@ -225,20 +209,20 @@ class FastaReaderIntegrationTest {
             List<FastaEntry> entries = service.getFastaEntries();
             assertEquals(2, entries.size(), "should parse 2 FASTA entries");
 
-            Set<String> ids = entries.stream().map(e -> e.getSubmissionId()).collect(Collectors.toSet());
-            assertTrue(ids.contains("ID1"));
-            assertTrue(ids.contains("ID2"));
-            Optional<FastaEntry> entry1 = service.getFastaWithSubmissionId("ID1");
-            Optional<FastaEntry> entry2 = service.getFastaWithSubmissionId("ID2");
+            Set<Long> ids = entries.stream().map(e -> e.getFastaReaderId()).collect(Collectors.toSet());
+            assertTrue(ids.contains(0L));
+            assertTrue(ids.contains(1L));
+            Optional<FastaEntry> entry1 = service.getFastaWithId(0L);
+            Optional<FastaEntry> entry2 = service.getFastaWithId(1L);
 
             for (long end = 2; end <= entry1.get().totalBases; end++) {
                 // get slice as string
                 String sequence = service.getSequenceSliceString(
-                        SequenceRangeOption.WHOLE_SEQUENCE, entry1.get().submissionId, 1, end);
+                        entry1.get().fastaReaderId, 1, end, SequenceRangeOption.WHOLE_SEQUENCE);
                 // stream sequence with the reader
                 String streamedSequence;
                 try (java.io.Reader r = service.getSequenceSliceReader(
-                        SequenceRangeOption.WHOLE_SEQUENCE, entry1.get().submissionId, 1, end)) {
+                        entry1.get().fastaReaderId, 1, end, SequenceRangeOption.WHOLE_SEQUENCE)) {
                     StringBuilder sb = new StringBuilder();
                     char[] cbuf = new char[8192];
                     int n;
@@ -254,11 +238,11 @@ class FastaReaderIntegrationTest {
             for (long end = 2; end <= entry2.get().totalBases; end++) {
                 // get slice as string
                 String sequence2 = service.getSequenceSliceString(
-                        SequenceRangeOption.WHOLE_SEQUENCE, entry2.get().submissionId, 1, end);
+                        entry2.get().fastaReaderId, 1, end, SequenceRangeOption.WHOLE_SEQUENCE);
                 // stream sequence with the reader
                 String streamedSequence2;
                 try (java.io.Reader r = service.getSequenceSliceReader(
-                        SequenceRangeOption.WHOLE_SEQUENCE, entry2.get().submissionId, 1, end)) {
+                        entry2.get().fastaReaderId, 1, end, SequenceRangeOption.WHOLE_SEQUENCE)) {
                     StringBuilder sb = new StringBuilder();
                     char[] cbuf = new char[8192];
                     int n;
@@ -292,21 +276,21 @@ class FastaReaderIntegrationTest {
             List<FastaEntry> entries = service.getFastaEntries();
             assertEquals(1, entries.size(), "should parse 1 FASTA entry");
 
-            Set<String> ids = entries.stream().map(e -> e.getSubmissionId()).collect(Collectors.toSet());
-            assertTrue(ids.contains("ID1"));
-            Optional<FastaEntry> entry1 = service.getFastaWithSubmissionId("ID1");
+            Set<Long> ids = entries.stream().map(FastaEntry::getFastaReaderId).collect(Collectors.toSet());
+            assertTrue(ids.contains(0));
+            Optional<FastaEntry> entry1 = service.getFastaWithId(0L);
 
             // get first 16 chars
             String sequenceStart = service.getSequenceSliceString(
-                    SequenceRangeOption.WHOLE_SEQUENCE, entry1.get().submissionId, 1, 16);
+                    entry1.get().fastaReaderId, 1, 16, SequenceRangeOption.WHOLE_SEQUENCE);
             assertEquals(sequenceStart, "GGGCTTTAAATGGCTC");
 
             // get last 16 chars
             String sequenceEnd = service.getSequenceSliceString(
-                    SequenceRangeOption.WHOLE_SEQUENCE,
-                    entry1.get().submissionId,
+                    entry1.get().fastaReaderId,
                     entry1.get().totalBases - 15,
-                    entry1.get().totalBases);
+                    entry1.get().totalBases,
+                    SequenceRangeOption.WHOLE_SEQUENCE);
             assertEquals(sequenceEnd, "GAATTCTGATGGCTGT");
         }
     }
