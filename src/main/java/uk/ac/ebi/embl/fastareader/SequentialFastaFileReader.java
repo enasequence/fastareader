@@ -23,6 +23,7 @@ public class SequentialFastaFileReader implements AutoCloseable {
     private static final int CHAR_BUF_SIZE = 512 * 1024; // 512 KB
     private static final byte GT = (byte) '>';
     private static final byte LF = (byte) '\n';
+    private static final byte CR = (byte) '\r';
 
     private final FileChannel channel;
     private final long fileSize;
@@ -269,7 +270,7 @@ public class SequentialFastaFileReader implements AutoCloseable {
             if (n <= 0) break;
             buf.flip();
 
-            int lfIndex = indexOf(buf, LF);
+            int lfIndex = indexOfHeaderLineEnd(buf);
             if (lfIndex >= 0) {
                 appendAscii(sb, buf, lfIndex);
                 long nextLineStart = scanPos + lfIndex + 1; // consume LF
@@ -284,9 +285,9 @@ public class SequentialFastaFileReader implements AutoCloseable {
         return sb.toString();
     }
 
-    private static int indexOf(ByteBuffer buf, byte target) {
+    private static int indexOfHeaderLineEnd(ByteBuffer buf) {
         for (int i = 0; i < buf.remaining(); i++) {
-            if (buf.get(buf.position() + i) == target) return i;
+            if (buf.get(buf.position() + i) == LF || buf.get(buf.position() + i) == CR) return i;
         }
         return -1;
     }
