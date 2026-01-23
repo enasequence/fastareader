@@ -24,6 +24,7 @@ public final class SequenceIndexBuilder {
 
     private static final byte GT = (byte) '>';
     private static final byte LF = (byte) '\n';
+    private static final byte CR = (byte) '\r';
 
     private final FileChannel ch;
     private final long fileSize;
@@ -138,7 +139,7 @@ public final class SequenceIndexBuilder {
     private boolean isLineStart(long abs) throws IOException {
         if (abs == 0) return true;
         if (abs > fileSize) return false;
-        return peek(abs - 1) == LF;
+        return peek(abs - 1) == LF || peek(abs - 1) == CR;
     }
 
     private byte peek(long abs) throws IOException {

@@ -17,7 +17,7 @@ import lombok.Setter;
 @Setter
 public class FastaEntry {
     public long fastaReaderId;
-    public String headerLine; // id+json info
+    public String headerLine;
     public long totalBases;
     public long totalBasesWithoutNBases;
     public long leadingNsCount;

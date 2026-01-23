@@ -31,9 +31,8 @@ import uk.ac.ebi.embl.fastareader.sequenceutils.SequenceIndex;
 public final class FastaReader implements AutoCloseable {
 
     public List<FastaEntry> fastaEntries = new ArrayList<>();
-
-    private HashMap<Long, SequenceIndex> sequenceIndexes =
-            new HashMap<>(); // maps fastaReaderId to the correct sequenceIndex
+    // Maps fastaReaderId to its corresponding SequenceIndex
+    private HashMap<Long, SequenceIndex> sequenceIndexes = new HashMap<>();
     private File file;
     private SequentialFastaFileReader reader;
 
@@ -65,7 +64,7 @@ public final class FastaReader implements AutoCloseable {
     /** Gets a specific FASTA entry with the appropriate fastaReaderId **/
     public Optional<FastaEntry> getFastaWithId(Long fastaReaderId) throws FastaFileException {
         return fastaEntries.stream()
-                .filter(entry -> entry.getFastaReaderId() == fastaReaderId)
+                .filter(entry -> Objects.equals(entry.getFastaReaderId(), fastaReaderId))
                 .findFirst();
     }
 
@@ -152,8 +151,6 @@ public final class FastaReader implements AutoCloseable {
     public void openNewFile(File fastaFile) throws FastaFileException, IOException {
         close(); // if already open, close first
         this.file = Objects.requireNonNull(fastaFile, "file");
-        this.fastaEntries.clear();
-        this.sequenceIndexes.clear();
         reader = new SequentialFastaFileReader(fastaFile);
         loadEntries();
     }
@@ -161,6 +158,8 @@ public final class FastaReader implements AutoCloseable {
     /** Close the reader. Safe to call multiple times. */
     @Override
     public void close() throws IOException {
+        this.fastaEntries.clear();
+        this.sequenceIndexes.clear();
         if (reader != null) {
             reader.close();
             reader = null;
