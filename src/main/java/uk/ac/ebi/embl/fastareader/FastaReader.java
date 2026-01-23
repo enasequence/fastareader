@@ -83,7 +83,7 @@ public final class FastaReader implements AutoCloseable {
         ensureFileReaderOpen();
         SequenceIndex index = sequenceIndexes.get(fastaReaderId);
         if (index == null) {
-            throw new FastaFileException("No sequence index found for submissionId " + fastaReaderId);
+            throw new FastaFileException("No sequence index found for fasta reader Id " + fastaReaderId);
         }
 
         final ByteSpan span;
@@ -128,7 +128,7 @@ public final class FastaReader implements AutoCloseable {
         ensureFileReaderOpen();
         var index = sequenceIndexes.get(fastaReaderId);
         if (index == null) {
-            throw new FastaFileException("No sequence index found for submissionId " + fastaReaderId);
+            throw new FastaFileException("No sequence index found for fasta reader Id " + fastaReaderId);
         }
 
         ByteSpan span;
