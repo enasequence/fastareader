@@ -16,6 +16,7 @@ import java.io.Reader;
 import java.util.*;
 import lombok.Getter;
 import lombok.Setter;
+import uk.ac.ebi.embl.fastareader.encoding.Utf8Detector;
 import uk.ac.ebi.embl.fastareader.exception.FastaFileException;
 import uk.ac.ebi.embl.fastareader.sequenceutils.ByteSpan;
 import uk.ac.ebi.embl.fastareader.sequenceutils.SequenceAlphabet;
@@ -51,6 +52,7 @@ public final class FastaReader implements AutoCloseable {
         this.sequenceIndexes = new HashMap<>();
         this.fastaEntries = new ArrayList<>();
 
+        checkIfUtf8();
         loadEntries();
     }
 
@@ -167,6 +169,10 @@ public final class FastaReader implements AutoCloseable {
     }
 
     // ----------------------------- helper methods for actually loading the fastaEntries ------------------
+
+    private void checkIfUtf8(File file) throws IOException {
+        Utf8Detector.isProbablyUtf8(file.getPath());
+    }
 
     /**
      * Performs a one-time scan of the FASTA file to build in-memory sequence indexes.
