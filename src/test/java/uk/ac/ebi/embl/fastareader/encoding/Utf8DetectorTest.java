@@ -1,11 +1,21 @@
+/*
+ * Copyright 2026 EMBL - European Bioinformatics Institute
+ * Licensed under the Apache License, Version 2.0 (the "License"); you may not use this
+ * file except in compliance with the License. You may obtain a copy of the License at
+ * http://www.apache.org/licenses/LICENSE-2.0
+ * Unless required by applicable law or agreed to in writing, software distributed under the
+ * License is distributed on an "AS IS" BASIS, WITHOUT WARRANTIES OR
+ * CONDITIONS OF ANY KIND, either express or implied. See the License for the
+ * specific language governing permissions and limitations under the License.
+ */
 package uk.ac.ebi.embl.fastareader.encoding;
-import org.junit.jupiter.api.Test;
-import uk.ac.ebi.embl.fastareader.FastaTestResources;
+
+import static org.junit.jupiter.api.Assertions.*;
 
 import java.io.IOException;
 import java.nio.file.Path;
-
-import static org.junit.jupiter.api.Assertions.*;
+import org.junit.jupiter.api.Test;
+import uk.ac.ebi.embl.fastareader.FastaTestResources;
 
 class Utf8DetectorTest {
 
@@ -29,8 +39,12 @@ class Utf8DetectorTest {
 
     @Test
     void detectsNonUtf8EncodingCorrectly() throws IOException {
-        Path p = FastaTestResources.path("encoding", "non_utf8.txt"); // contains 0x80 by itself, which is an invalid UTF-8 start byte.
-        Path p1 = FastaTestResources.path("encoding", "non_utf8_1.txt"); // contains 0xE9 by itself - in ISO-8859-1 this is "é", but as a lone byte it's invalid UTF-8.
+        Path p = FastaTestResources.path(
+                "encoding", "non_utf8.txt"); // contains 0x80 by itself, which is an invalid UTF-8 start byte.
+        Path p1 = FastaTestResources.path(
+                "encoding",
+                "non_utf8_1.txt"); // contains 0xE9 by itself - in ISO-8859-1 this is "é", but as a lone byte it's
+        // invalid UTF-8.
         Path p2 = FastaTestResources.path("encoding", "non_utf8_2.txt");
 
         assertFalse(Utf8Detector.isProbablyUtf8(p));
@@ -40,11 +54,12 @@ class Utf8DetectorTest {
 
     @Test
     void respectsMaxBytesLimit() throws IOException {
-        Path p = FastaTestResources.path("encoding", "large_non_utf8.txt"); //1Mb file that is utf8 for the first 1Mb, and non utf8 as the last char
+        Path p = FastaTestResources.path(
+                "encoding",
+                "large_non_utf8.txt"); // 1Mb file that is utf8 for the first 1Mb, and non utf8 as the last char
         int limit = 1024 * 1024; // 1 MiB limit to test the file
 
-        assertTrue(Utf8Detector.isProbablyUtf8(p, limit)); //first 1Mb should be detected as Utf8
-        assertFalse(Utf8Detector.isProbablyUtf8(p, limit + 1)); //if detecting later characters, should fail
+        assertTrue(Utf8Detector.isProbablyUtf8(p, limit)); // first 1Mb should be detected as Utf8
+        assertFalse(Utf8Detector.isProbablyUtf8(p, limit + 1)); // if detecting later characters, should fail
     }
 }
-

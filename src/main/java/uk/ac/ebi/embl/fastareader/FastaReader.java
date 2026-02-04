@@ -31,6 +31,9 @@ import uk.ac.ebi.embl.fastareader.sequenceutils.SequenceIndex;
 @Setter
 public final class FastaReader implements AutoCloseable {
 
+    private int UTF_8_CHECK_MAXIMUM_BYTES =
+            1024 * 1024; // check just preliminary first 1Mb to confirm encoding is likely UTF8
+
     public List<FastaEntry> fastaEntries = new ArrayList<>();
     // Maps fastaReaderId to its corresponding SequenceIndex
     private HashMap<Long, SequenceIndex> sequenceIndexes = new HashMap<>();
@@ -52,7 +55,7 @@ public final class FastaReader implements AutoCloseable {
         this.sequenceIndexes = new HashMap<>();
         this.fastaEntries = new ArrayList<>();
 
-        checkIfUtf8();
+        checkIfUtf8(fastaFile);
         loadEntries();
     }
 
@@ -170,8 +173,10 @@ public final class FastaReader implements AutoCloseable {
 
     // ----------------------------- helper methods for actually loading the fastaEntries ------------------
 
-    private void checkIfUtf8(File file) throws IOException {
-        Utf8Detector.isProbablyUtf8(file.getPath());
+    private void checkIfUtf8(File file) throws IOException, FastaFileException {
+        if (!Utf8Detector.isProbablyUtf8(file.toPath(), UTF_8_CHECK_MAXIMUM_BYTES)) {
+            throw new FastaFileException("File is not a UTF-8 compliant file, and as such cannot be processed");
+        }
     }
 
     /**

@@ -1,3 +1,13 @@
+/*
+ * Copyright 2026 EMBL - European Bioinformatics Institute
+ * Licensed under the Apache License, Version 2.0 (the "License"); you may not use this
+ * file except in compliance with the License. You may obtain a copy of the License at
+ * http://www.apache.org/licenses/LICENSE-2.0
+ * Unless required by applicable law or agreed to in writing, software distributed under the
+ * License is distributed on an "AS IS" BASIS, WITHOUT WARRANTIES OR
+ * CONDITIONS OF ANY KIND, either express or implied. See the License for the
+ * specific language governing permissions and limitations under the License.
+ */
 package uk.ac.ebi.embl.fastareader.encoding;
 
 import java.io.IOException;
@@ -9,7 +19,7 @@ public final class Utf8Detector {
 
     public static final int DEFAULT_MAX_BYTES = 4 * 1024 * 1024;
 
-    private Utf8Detector() { }
+    private Utf8Detector() {}
 
     public static boolean isProbablyUtf8(Path path) throws IOException {
         return isProbablyUtf8(path, DEFAULT_MAX_BYTES);
@@ -26,9 +36,9 @@ public final class Utf8Detector {
             boolean bomChecked = false;
 
             // UTF-8 validation state across buffer boundaries
-            int needed = 0;    // continuation bytes remaining
-            int minCode = 0;   // smallest allowed code point for this sequence (prevents overlong)
-            int code = 0;      // current code point being assembled
+            int needed = 0; // continuation bytes remaining
+            int minCode = 0; // smallest allowed code point for this sequence (prevents overlong)
+            int code = 0; // current code point being assembled
 
             while (totalRead < maxBytes) {
                 int toRead = Math.min(buf.length, maxBytes - totalRead);
@@ -41,10 +51,7 @@ public final class Utf8Detector {
                 // Skip UTF-8 BOM if present at the very start of the file.
                 if (!bomChecked) {
                     bomChecked = true;
-                    if (n >= 3
-                            && (buf[0] & 0xFF) == 0xEF
-                            && (buf[1] & 0xFF) == 0xBB
-                            && (buf[2] & 0xFF) == 0xBF) {
+                    if (n >= 3 && (buf[0] & 0xFF) == 0xEF && (buf[1] & 0xFF) == 0xBB && (buf[2] & 0xFF) == 0xBF) {
                         i = 3;
                     }
                 }
@@ -59,15 +66,15 @@ public final class Utf8Detector {
                         if (b < 0x80) continue;
 
                         // Determine sequence length & initial code bits
-                        if (b >= 0xC2 && b <= 0xDF) {          // 2-byte
+                        if (b >= 0xC2 && b <= 0xDF) { // 2-byte
                             needed = 1;
                             code = b & 0x1F;
                             minCode = 0x80;
-                        } else if (b >= 0xE0 && b <= 0xEF) {   // 3-byte
+                        } else if (b >= 0xE0 && b <= 0xEF) { // 3-byte
                             needed = 2;
                             code = b & 0x0F;
                             minCode = 0x800;
-                        } else if (b >= 0xF0 && b <= 0xF4) {   // 4-byte (UTF-8 valid max is U+10FFFF)
+                        } else if (b >= 0xF0 && b <= 0xF4) { // 4-byte (UTF-8 valid max is U+10FFFF)
                             needed = 3;
                             code = b & 0x07;
                             minCode = 0x10000;
