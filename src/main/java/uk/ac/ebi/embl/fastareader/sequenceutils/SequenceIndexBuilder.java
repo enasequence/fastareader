@@ -61,7 +61,15 @@ public final class SequenceIndexBuilder {
             endN = countTrailingNs(firstBaseByte, lastBaseByte); // count continuous Ns from the end
         }
 
-        return new SequenceIndex(firstBaseByte, startN, lastBaseByte, endN, lines, s.nextHdr, s.totalNBasesCount);
+        return new SequenceIndex(
+                firstBaseByte,
+                startN,
+                lastBaseByte,
+                endN,
+                lines,
+                s.nextHdr,
+                s.charCounts,
+                alphabet.getAllowedBaseCharList());
     }
 
     // =====================================================================
@@ -78,7 +86,7 @@ public final class SequenceIndexBuilder {
         long lineLastByte = -1; // last  allowed base byte in current line
         long basesSoFar = 0;
         long basesInLine = 0;
-        long totalNBasesCount = 0;
+        final long[] charCounts = new long[128]; // counts allowed character appearances
 
         final ArrayList<LineEntry> lines = new ArrayList<>(256);
 
@@ -115,10 +123,8 @@ public final class SequenceIndexBuilder {
                 commitOpenLineIfAny(s); // only lines with bases are committed
                 continue;
             } else if (alphabet.isAllowedBase(b)) {
-                char byteTranslation = (char) (b & 0x7F);
-                if (alphabet.isNBase(b)) {
-                    s.totalNBasesCount++;
-                }
+                int ci = b & 0x7F; // 0..127
+                s.charCounts[ci]++;
                 observeBase(abs, s);
             } else {
                 throw new FastaFileException(String.format(

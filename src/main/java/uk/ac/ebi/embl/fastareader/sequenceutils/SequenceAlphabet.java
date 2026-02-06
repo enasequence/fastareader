@@ -10,7 +10,12 @@
  */
 package uk.ac.ebi.embl.fastareader.sequenceutils;
 
+import java.util.ArrayList;
+import java.util.Collections;
+import java.util.List;
+
 public final class SequenceAlphabet {
+    private static final byte N_UPPER = (byte) 'N'; // IUPAC defined any character
     private final boolean[] allowed = new boolean[128];
     private final boolean[] specialChars = new boolean[128];
 
@@ -34,11 +39,29 @@ public final class SequenceAlphabet {
 
     /** Fast ASCII check for 'N' or 'n' without decoding. */
     public boolean isNBase(byte b) {
-        return ((b | 0x20) == 'n');
+        return (byte) (b & ~0x20) == N_UPPER;
+    }
+
+    /** The canonical N base character (uppercase). */
+    public char nBase() {
+        return (char) N_UPPER; // returns 'N'
     }
 
     public static SequenceAlphabet defaultNucleotideAlphabet() {
         return new SequenceAlphabet("ACGTRYSWKMBDHVNacgtryswkmbdhvn", "\n\r");
+    }
+
+    /** Returns allowed bases as uppercase, de-duplicated (e.g., 'A' not both 'A' and 'a'). */
+    public List<Character> getAllowedBaseCharList() {
+        List<Character> out = new ArrayList<>();
+
+        for (int i = 0; i < 128; i++) {
+            if (!allowed[i]) continue;
+            char c = (char) i;
+            out.add(c);
+        }
+
+        return Collections.unmodifiableList(out);
     }
 
     public String describeAllowed() {
