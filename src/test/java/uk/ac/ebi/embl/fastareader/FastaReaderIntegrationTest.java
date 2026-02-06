@@ -57,9 +57,11 @@ class FastaReaderIntegrationTest {
             assertTrue(entry1.get()
                     .headerLine
                     .equals(">MCHU - Calmodulin - Human, rabbit, bovine, rat, and chicken Zażółć gęślą jaźń — 日本語"));
-            assertTrue(entry2.get()
-                    .headerLine
-                    .equals("> ID2 | {\"description\":\"这绝对是一段\u200B\u200B描述。\", \"molecule_type\":\"脱氧核糖核酸\", \"topology\":\"linear\"}"));
+            assertTrue(
+                    entry2.get()
+                            .headerLine
+                            .equals(
+                                    "> ID2 | {\"description\":\"这绝对是一段\u200B\u200B描述。\", \"molecule_type\":\"脱氧核糖核酸\", \"topology\":\"linear\"}"));
         }
     }
 
