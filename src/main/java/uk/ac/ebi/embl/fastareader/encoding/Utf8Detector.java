@@ -29,13 +29,11 @@ public final class Utf8Detector {
         if (maxBytes <= 0) throw new IllegalArgumentException("maxBytes must be > 0");
 
         try (InputStream in = Files.newInputStream(path)) {
-            // Bigger buffer = fewer syscalls; 64KiB is a good sweet spot.
             byte[] buf = new byte[64 * 1024];
 
             int totalRead = 0;
             boolean bomChecked = false;
 
-            // UTF-8 validation state across buffer boundaries
             int needed = 0; // continuation bytes remaining
             int minCode = 0; // smallest allowed code point for this sequence (prevents overlong)
             int code = 0; // current code point being assembled
@@ -48,8 +46,8 @@ public final class Utf8Detector {
 
                 int i = 0;
 
-                // Skip UTF-8 BOM if present at the very start of the file.
                 if (!bomChecked) {
+                    // Check UTF-8 BOM if present at the very start of the file.
                     bomChecked = true;
                     if (n >= 3 && (buf[0] & 0xFF) == 0xEF && (buf[1] & 0xFF) == 0xBB && (buf[2] & 0xFF) == 0xBF) {
                         i = 3;
@@ -90,12 +88,9 @@ public final class Utf8Detector {
                         needed--;
 
                         if (needed == 0) {
-                            // Reject overlong encodings
-                            if (code < minCode) return false;
-                            // Reject UTF-16 surrogate halves
-                            if (code >= 0xD800 && code <= 0xDFFF) return false;
-                            // Reject > U+10FFFF
-                            if (code > 0x10FFFF) return false;
+                            if (code < minCode) return false; // Reject overlong encodings
+                            if (code >= 0xD800 && code <= 0xDFFF) return false; // Reject UTF-16 surrogate halves
+                            if (code > 0x10FFFF) return false; // Reject > U+10FFFF
 
                             // reset for next char
                             code = 0;

@@ -40,6 +40,30 @@ class FastaReaderIntegrationTest {
     }
 
     @Test
+    void readsUnicodeHeadersCorrectly() throws IOException, FastaFileException {
+        File fasta = FastaTestResources.file(
+                "fasta", "differing_headerline_fasta.txt"); // this example has varying fasta headers
+
+        try (FastaReader service = new FastaReader(fasta)) {
+            List<FastaEntry> entries = service.getFastaEntries();
+            assertEquals(2, entries.size(), "should parse 2 FASTA entries");
+
+            Optional<FastaEntry> entry1 = service.getFastaWithId(0L);
+            Optional<FastaEntry> entry2 = service.getFastaWithId(1L);
+            assertTrue(entry1.isPresent(), "index for 0L fastaReaderId must exist");
+            assertTrue(entry2.isPresent(), "index for 1 fastaReaderId must exist");
+
+            // check header
+            assertTrue(entry1.get()
+                    .headerLine
+                    .equals(">MCHU - Calmodulin - Human, rabbit, bovine, rat, and chicken Zażółć gęślą jaźń — 日本語"));
+            assertTrue(entry2.get()
+                    .headerLine
+                    .equals("> ID2 | {\"description\":\"x\", \"molecule_type\":\"dna\", \"topology\":\"linear\"}"));
+        }
+    }
+
+    @Test
     void proccessingEntriesWithCarriageReturnsCorrectly() throws IOException, FastaFileException {
         File fasta = FastaTestResources.file("fasta", "example_with_carriage_return_char.txt");
         try (FastaReader service = new FastaReader(fasta)) {
@@ -57,6 +81,18 @@ class FastaReaderIntegrationTest {
             assertTrue(entry1.isPresent(), "index for AF123456.1 must exist");
             assertTrue(entry2.isPresent(), "index for AF123455.2 must exist");
             assertTrue(imaginaryEntry.isEmpty(), "index for ID3 must not exist");
+
+            // check header
+            assertTrue(
+                    entry1.get()
+                            .headerLine
+                            .equals(
+                                    ">AF123456.1 |{\"description\":\"x\", \"molecule_type\":\"dna\", \"topology\":\"circular\"}"));
+            assertTrue(
+                    entry2.get()
+                            .headerLine
+                            .equals(
+                                    ">AF123455.2 |{\"description\":\"x\", \"molecule_type\":\"dna\", \"topology\":\"circular\"}"));
 
             // From the sample file above:
             assertEquals(9, entry1.get().leadingNsCount, "AF123456.1 leading Ns");
@@ -113,6 +149,14 @@ class FastaReaderIntegrationTest {
             assertTrue(entry1.isPresent(), "index for ID1 must exist");
             assertTrue(entry2.isPresent(), "index for ID2 must exist");
             assertTrue(imaginaryEntry.isEmpty(), "index for ID3 must not exist");
+
+            // check header
+            assertTrue(entry1.get()
+                    .headerLine
+                    .equals(">ID1 | {\"description\":\"x\", \"molecule_type\":\"dna\", \"topology\":\"linear\"}"));
+            assertTrue(entry2.get()
+                    .headerLine
+                    .equals(">ID2 | {\"description\":\"x\", \"molecule_type\":\"dna\", \"topology\":\"circular\"}"));
 
             // From the sample file above:
             assertEquals(2, entry1.get().leadingNsCount, "ID1 leading Ns");
