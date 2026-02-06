@@ -3,6 +3,6 @@ NNAC
 ACGT
 TTNn
 
-> ID2 | {"description":"x", "molecule_type":"dna", "topology":"linear"}
+> ID2 | {"description":"这绝对是一段​​描述。", "molecule_type":"脱氧核糖核酸", "topology":"linear"}
 ACGTG
 GGG
