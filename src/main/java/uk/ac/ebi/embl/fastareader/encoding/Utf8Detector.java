@@ -29,7 +29,7 @@ public final class Utf8Detector {
         if (maxBytes <= 0) throw new IllegalArgumentException("maxBytes must be > 0");
 
         try (InputStream in = Files.newInputStream(path)) {
-            byte[] buf = new byte[64 * 1024];
+            byte[] buf = new byte[1024 * 1024];
 
             int totalRead = 0;
             boolean bomChecked = false;
@@ -100,7 +100,7 @@ public final class Utf8Detector {
                 }
             }
 
-            // If we end sampling in the middle of a character => invalid
+            // If we end sampling in the middle of a character -> invalid
             return needed == 0;
         }
     }
