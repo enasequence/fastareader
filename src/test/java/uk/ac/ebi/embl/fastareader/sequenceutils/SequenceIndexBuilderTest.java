@@ -110,6 +110,10 @@ public class SequenceIndexBuilderTest {
             assertEquals(2, idx.endNBasesCount, "trailing Ns only from last sequence line");
             // assert total count of N bases is correctly done
             assertEquals(4, idx.caseInsensitiveBaseCount.get('N'));
+            assertEquals(2, idx.caseInsensitiveBaseCount.get('A'));
+            assertEquals(2, idx.caseInsensitiveBaseCount.get('C'));
+            assertEquals(3, idx.caseInsensitiveBaseCount.get('T'));
+            assertEquals(1, idx.caseInsensitiveBaseCount.get('G'));
 
             // nextHeaderByte should point to '>' of NEXT header
             long expectedNextHeader = header.length() + l1.length() + l2.length() + l3.length() + empties.length();
@@ -143,6 +147,8 @@ public class SequenceIndexBuilderTest {
             assertEquals(0, idx.endNBasesCount);
             // assert total count of N bases is correctly done
             assertEquals(2, idx.caseInsensitiveBaseCount.get('N'));
+            assertEquals(4, idx.caseInsensitiveBaseCount.get('G'));
+            assertEquals(2, idx.caseInsensitiveBaseCount.get('A'));
 
             // nextHeader should be at the '>' byte of H2
             long expectedNext = fasta.lastIndexOf(">H2\n"); // ascii index
@@ -213,6 +219,9 @@ public class SequenceIndexBuilderTest {
             assertEquals(1, idx.endNBasesCount, "only last line trailing Ns");
             // assert total count of N bases is correctly done
             assertEquals(6, idx.caseInsensitiveBaseCount.get('N'));
+            assertEquals(4, idx.caseInsensitiveBaseCount.get('G'));
+            assertEquals(1, idx.caseInsensitiveBaseCount.get('A'));
+            assertEquals(1, idx.caseInsensitiveBaseCount.get('C'));
 
             // Middle line of Ns shouldn't change edge counts
             assertEquals(idx.linesView().get(1).lengthBases(), 4);
