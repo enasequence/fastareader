@@ -10,9 +10,7 @@
  */
 package uk.ac.ebi.embl.fastareader.sequenceutils;
 
-import java.util.ArrayList;
-import java.util.Collections;
-import java.util.List;
+import java.util.*;
 
 public final class SequenceIndex {
 
@@ -23,7 +21,7 @@ public final class SequenceIndex {
     // N bases related counts
     public long startNBasesCount;
     public long endNBasesCount;
-    public long totalNBasesCount;
+    public Map<Character, Long> caseInsensitiveBaseCount;
 
     public SequenceIndex(
             long firstBaseByte,
@@ -32,14 +30,33 @@ public final class SequenceIndex {
             long endNBasesCount,
             List<LineEntry> lines,
             long nextHeader,
-            long totalNBasesCount) {
+            long[] baseCounts,
+            List<Character> baseChars) {
         this.firstBaseByte = firstBaseByte;
         this.startNBasesCount = startNBasesCount;
         this.lastBaseByte = lastBaseByte;
         this.endNBasesCount = endNBasesCount;
         this.lines = new ArrayList<>(lines);
         this.nextHeaderByte = nextHeader;
-        this.totalNBasesCount = totalNBasesCount;
+        this.caseInsensitiveBaseCount = new HashMap<>();
+        mapAllowedCharacters(baseCounts, baseChars);
+    }
+
+    private void mapAllowedCharacters(long[] baseCounts, List<Character> allowedCanonicalChars) {
+        for (char c : allowedCanonicalChars) {
+            // for alphabet, sum up lowercase once
+            if ((c >= 'a' && c <= 'z') || (c >= 'A' && c <= 'Z')) {
+                char lowercase = Character.toLowerCase(c);
+                char uppercase = Character.toUpperCase(c);
+                if (!caseInsensitiveBaseCount.containsKey(uppercase)) {
+                    caseInsensitiveBaseCount.put(c, baseCounts[lowercase] + baseCounts[uppercase]);
+                }
+            }
+            // everything else is counted once
+            else {
+                caseInsensitiveBaseCount.put(c, baseCounts[c]);
+            }
+        }
     }
 
     public List<LineEntry> linesView() {

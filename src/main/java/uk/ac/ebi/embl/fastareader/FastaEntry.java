@@ -10,6 +10,7 @@
  */
 package uk.ac.ebi.embl.fastareader;
 
+import java.util.Map;
 import lombok.Getter;
 import lombok.Setter;
 
@@ -22,5 +23,12 @@ public class FastaEntry {
     public long totalBasesWithoutNBases;
     public long leadingNsCount;
     public long trailingNsCount;
-    public long totalNBasesCount;
+    /**
+     * Count of all appearances of permitted sequence characters in this entry.
+     * <p>
+     * Letter keys are canonicalized to uppercase (e.g., 'a' and 'A' are counted under 'A').
+     * Non-letter allowed characters (e.g., '-', '.', '*') appear as-is.
+     * Allowed characters not present have a count of 0.
+     */
+    public Map<Character, Long> baseCount;
 }

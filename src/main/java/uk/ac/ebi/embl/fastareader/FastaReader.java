@@ -197,7 +197,7 @@ public final class FastaReader implements AutoCloseable {
             fastaEntry.setTotalBases(entry.sequenceIndex.totalBases());
             fastaEntry.setLeadingNsCount(entry.sequenceIndex.startNBasesCount);
             fastaEntry.setTrailingNsCount(entry.sequenceIndex.endNBasesCount);
-            fastaEntry.setTotalNBasesCount(entry.sequenceIndex.totalNBasesCount);
+            fastaEntry.setBaseCount(entry.sequenceIndex.caseInsensitiveBaseCount);
 
             long adjustedBases = entry.sequenceIndex.totalBases()
                     - entry.sequenceIndex.startNBasesCount

@@ -12,6 +12,7 @@ package uk.ac.ebi.embl.fastareader.sequenceutils;
 
 import static org.junit.jupiter.api.Assertions.*;
 
+import java.util.ArrayList;
 import java.util.List;
 import org.junit.jupiter.api.Test;
 
@@ -39,7 +40,8 @@ public class SequenceIndexTest {
                 /*endNBasesCount*/ endN,
                 lines,
                 114, // random value i put in, no meaning rn
-                /*totalNBases*/ startN + endN + 1); // random value i put in, no meaning rn
+                /*totalNBases*/ new long[128],
+                new ArrayList<>()); // random value i put in, no meaning rn
     }
 
     @Test
