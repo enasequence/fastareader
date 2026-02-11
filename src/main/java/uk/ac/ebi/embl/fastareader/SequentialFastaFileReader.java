@@ -13,8 +13,10 @@ package uk.ac.ebi.embl.fastareader;
 import java.io.*;
 import java.nio.ByteBuffer;
 import java.nio.channels.FileChannel;
+import java.nio.charset.StandardCharsets;
 import java.util.*;
 import uk.ac.ebi.embl.fastareader.exception.FastaFileException;
+import uk.ac.ebi.embl.fastareader.headerutils.HeaderLineDecoder;
 import uk.ac.ebi.embl.fastareader.sequenceutils.*;
 
 public class SequentialFastaFileReader implements AutoCloseable {
@@ -28,6 +30,7 @@ public class SequentialFastaFileReader implements AutoCloseable {
     private final FileChannel channel;
     private final long fileSize;
     private final SequenceAlphabet alphabet;
+    HeaderLineDecoder headerLineDecoder;
 
     public SequentialFastaFileReader(File file) throws IOException {
         this(file, SequenceAlphabet.defaultNucleotideAlphabet());
@@ -41,6 +44,8 @@ public class SequentialFastaFileReader implements AutoCloseable {
         this.alphabet = Objects.requireNonNull(alphabet, "alphabet");
         this.channel = new FileInputStream(file).getChannel();
         this.fileSize = channel.size();
+        this.headerLineDecoder =
+                new HeaderLineDecoder(StandardCharsets.UTF_8, new HashSet<>(Arrays.asList(LF, CR)), BUFFER_SIZE);
     }
 
     @Override
@@ -131,7 +136,7 @@ public class SequentialFastaFileReader implements AutoCloseable {
                         if (alphabet.isNonSequenceAllowedChar(b)) continue; // skip irrelevant bytes
                         char c = Character.toUpperCase((char) (b & 0xFF)); // decode byte and shift it to uppercase
                         characterBuffer[startingWriteIndexInCharacterBuffer + out] = c;
-                        ;
+
                         out++;
                     }
                 }
@@ -194,7 +199,7 @@ public class SequentialFastaFileReader implements AutoCloseable {
             if (headerPosOpt.isEmpty()) return Optional.empty();
 
             long headerPos = headerPosOpt.getAsLong();
-            String headerLine = readHeaderLine(headerPos);
+            String headerLine = headerLineDecoder.readHeaderLine(channel, headerPos); // readHeaderLine(headerPos);
             if (headerLine == null) throw new FastaFileException("Header is malformed at byte " + headerPos);
 
             long sequenceStartPos = channel.position(); // first byte after header line is the sequence position
@@ -251,51 +256,6 @@ public class SequentialFastaFileReader implements AutoCloseable {
         ByteBuffer one = ByteBuffer.allocate(1);
         int n = channel.read(one, abs);
         return (n == 1) ? one.get(0) : 0;
-    }
-
-    /** Reads one ASCII line from input position, assuming the position handed to it contains '>', advances past LF or to EOF. */
-    private String readHeaderLine(long from) throws IOException {
-        channel.position(from);
-        long scanPos = channel.position();
-        if (scanPos >= fileSize) return null;
-
-        StringBuilder sb = new StringBuilder(256);
-        ByteBuffer buf = ByteBuffer.allocateDirect(BUFFER_SIZE);
-
-        while (scanPos < fileSize) {
-            buf.clear();
-            int want = (int) Math.min(buf.capacity(), fileSize - scanPos);
-            buf.limit(want);
-            int n = channel.read(buf, scanPos);
-            if (n <= 0) break;
-            buf.flip();
-
-            int lfIndex = indexOfHeaderLineEnd(buf);
-            if (lfIndex >= 0) {
-                appendAscii(sb, buf, lfIndex);
-                long nextLineStart = scanPos + lfIndex + 1; // consume LF
-                channel.position(nextLineStart);
-                return sb.toString();
-            } else {
-                appendAscii(sb, buf, buf.remaining());
-                scanPos += n;
-            }
-        }
-        channel.position(fileSize);
-        return sb.toString();
-    }
-
-    private static int indexOfHeaderLineEnd(ByteBuffer buf) {
-        for (int i = 0; i < buf.remaining(); i++) {
-            if (buf.get(buf.position() + i) == LF || buf.get(buf.position() + i) == CR) return i;
-        }
-        return -1;
-    }
-
-    private static void appendAscii(StringBuilder sb, ByteBuffer buf, int len) {
-        byte[] chunk = new byte[len];
-        buf.get(chunk);
-        sb.append(new String(chunk, java.nio.charset.StandardCharsets.US_ASCII));
     }
 
     private long safePos() {
