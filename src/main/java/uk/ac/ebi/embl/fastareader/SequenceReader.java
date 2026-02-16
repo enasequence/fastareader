@@ -21,7 +21,7 @@ import uk.ac.ebi.embl.fastareader.sequenceutils.ByteSpan;
 import uk.ac.ebi.embl.fastareader.sequenceutils.SequenceAlphabet;
 import uk.ac.ebi.embl.fastareader.sequenceutils.SequenceIndex;
 
-public class PlainSequenceReader implements AutoCloseable {
+public class SequenceReader implements AutoCloseable {
     private int UTF_8_CHECK_MAXIMUM_BYTES =
             1024 * 1024; // check just preliminary first 1Mb to confirm encoding is likely UTF8
 
@@ -31,7 +31,7 @@ public class PlainSequenceReader implements AutoCloseable {
     private InternalReader reader;
 
     /** Initializes Sequence reader, skimming through the whole file right away. */
-    public PlainSequenceReader(File sequenceFile) throws SequenceFileException, IOException {
+    public SequenceReader(File sequenceFile) throws SequenceFileException, IOException {
         this(sequenceFile, SequenceAlphabet.defaultNucleotideAlphabet());
     }
 
@@ -39,8 +39,7 @@ public class PlainSequenceReader implements AutoCloseable {
      * Initializes Sequence reader, skimming through the whole file right away.
      * Adds the option to define your own desired SequenceAlphabet and a list of tolerable characters in the sequence (usually eg. \n, \r)
      * */
-    public PlainSequenceReader(File sequenceFile, SequenceAlphabet alphabet)
-            throws SequenceFileException, IOException {
+    public SequenceReader(File sequenceFile, SequenceAlphabet alphabet) throws SequenceFileException, IOException {
         this.file = Objects.requireNonNull(sequenceFile, "sequenceFile");
         this.reader = new InternalReader(sequenceFile, alphabet, FileFormat.PLAIN_SINGLE_SEQUENCE);
         this.sequenceIndex = null;
@@ -96,7 +95,7 @@ public class PlainSequenceReader implements AutoCloseable {
      * Uses the cached index to translate bases -> bytes, then asks the reader to stream
      * ASCII bytes while skipping '\n' and '\r' on the fly.
      */
-    public Reader getSequenceSliceReader(long fromBase, long toBase) throws SequenceFileException {
+    public Reader getSequenceSliceReader(long fromBase, long toBase) {
         return getSequenceSliceReader(fromBase, toBase, SequenceRangeOption.WHOLE_SEQUENCE);
     }
 
@@ -163,9 +162,9 @@ public class PlainSequenceReader implements AutoCloseable {
      */
     private void loadSequence() throws IOException, SequenceFileException {
         List<SequenceEntryMetadata> readEntries;
-        try{
+        try {
             readEntries = reader.readFile();
-        }catch(SequenceReadingException e){
+        } catch (SequenceReadingException e) {
             throw new SequenceFileException(e);
         }
 

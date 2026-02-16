@@ -25,13 +25,13 @@ public class PlainSequenceReaderIntegrationTest {
         File sequenceFile =
                 TestResources.file("sequence", "malformed_example.txt"); // this example has varying fasta headers
 
-        assertThrows(SequenceFileException.class, () -> new PlainSequenceReader(sequenceFile));
+        assertThrows(SequenceFileException.class, () -> new SequenceReader(sequenceFile));
     }
 
     @Test
     void countsOnlyNsSequenceCorrectly() throws IOException, SequenceFileException {
         File sequenceFile = TestResources.file("sequence", "only_ns_example.txt");
-        try (PlainSequenceReader service = new PlainSequenceReader(sequenceFile)) {
+        try (SequenceReader service = new SequenceReader(sequenceFile)) {
 
             SequenceEntry sequence = service.getSequenceInfo();
             assertEquals(43, sequence.leadingNsCount, "leading Ns");
@@ -43,7 +43,7 @@ public class PlainSequenceReaderIntegrationTest {
     @Test
     void proccessingSequenceWithCarriageReturnsCorrectly() throws IOException, SequenceFileException {
         File sequenceFile = TestResources.file("sequence", "example_with_carriage_return_char.txt");
-        try (PlainSequenceReader service = new PlainSequenceReader(sequenceFile)) {
+        try (SequenceReader service = new SequenceReader(sequenceFile)) {
 
             SequenceEntry sequence = service.getSequenceInfo();
 
@@ -80,7 +80,7 @@ public class PlainSequenceReaderIntegrationTest {
     @Test
     void gettingSequenceSliceAsStringReturnsCorrectly() throws IOException, SequenceFileException {
         File sequenceFile = TestResources.file("sequence", "example.txt");
-        try (PlainSequenceReader service = new PlainSequenceReader(sequenceFile)) {
+        try (SequenceReader service = new SequenceReader(sequenceFile)) {
 
             SequenceEntry sequence = service.getSequenceInfo();
 
@@ -101,7 +101,7 @@ public class PlainSequenceReaderIntegrationTest {
     @Test
     void gettingSequenceViaReaderGivesCorrectResult() throws IOException, SequenceFileException {
         File sequenceFile = TestResources.file("sequence", "example.txt");
-        try (PlainSequenceReader service = new PlainSequenceReader(sequenceFile)) {
+        try (SequenceReader service = new SequenceReader(sequenceFile)) {
 
             SequenceEntry sequence = service.getSequenceInfo();
 
@@ -140,7 +140,7 @@ public class PlainSequenceReaderIntegrationTest {
     @Test
     void gettingStringAsAStringVsStreamProducesSameResultSlices() throws IOException, SequenceFileException {
         File sequenceFile = TestResources.file("sequence", "example.txt");
-        try (PlainSequenceReader service = new PlainSequenceReader(sequenceFile)) {
+        try (SequenceReader service = new SequenceReader(sequenceFile)) {
 
             SequenceEntry sequenceInfo = service.getSequenceInfo();
 
