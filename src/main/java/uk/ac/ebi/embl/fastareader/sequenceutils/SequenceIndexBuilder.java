@@ -16,24 +16,27 @@ import java.nio.channels.FileChannel;
 import java.nio.charset.StandardCharsets;
 import java.util.ArrayList;
 import java.util.List;
+import java.util.Optional;
 import uk.ac.ebi.embl.fastareader.exception.FastaFileException;
 
 public final class SequenceIndexBuilder {
     private static final int SCAN_BUF_SIZE = 4 * 1024 * 1024; // 4 MB
     private static final int COUNT_BUF_SIZE = 4 * 1024 * 1024; // 2 MB
 
-    private static final byte GT = (byte) '>';
     private static final byte LF = (byte) '\n';
     private static final byte CR = (byte) '\r';
 
     private final FileChannel ch;
     private final long fileSize;
     private final SequenceAlphabet alphabet;
+    private final Optional<Byte> sequenceEndByte; // this would be '>' char turned to
 
-    public SequenceIndexBuilder(FileChannel ch, long fileSize, SequenceAlphabet alphabet) {
+    public SequenceIndexBuilder(FileChannel ch, SequenceAlphabet alphabet, Optional<Byte> sequenceEndByte)
+            throws IOException {
         this.ch = ch;
-        this.fileSize = fileSize;
+        this.fileSize = ch.size();
         this.alphabet = alphabet;
+        this.sequenceEndByte = sequenceEndByte;
     }
 
     /** Build a SequenceIndex starting at 'startPos' (first byte after header line). */
@@ -90,9 +93,9 @@ public final class SequenceIndexBuilder {
 
         final ArrayList<LineEntry> lines = new ArrayList<>(256);
 
-        ScanState(long startPos, long fileSize) {
+        ScanState(long startPos, long charAtEndIndex) {
             this.pos = startPos;
-            this.nextHdr = fileSize;
+            this.nextHdr = charAtEndIndex;
         }
     }
 
@@ -138,7 +141,8 @@ public final class SequenceIndexBuilder {
     }
 
     private boolean isHeaderStart(byte b, long abs) throws IOException {
-        return b == GT && isLineStart(abs);
+        if (sequenceEndByte.isEmpty()) return false;
+        return b == sequenceEndByte.get() && isLineStart(abs);
     }
 
     /** header must be at file start or immediately after LF */

@@ -182,20 +182,35 @@ public class SequentialFileReader implements AutoCloseable {
         };
     }
 
-    public List<FastaEntryMetadata> readAll() throws FastaFileException, IOException {
+    public List<SequenceEntryMetadata> readFile() throws FastaFileException, IOException {
         long position = 0;
-        List<FastaEntryMetadata> entries = new ArrayList<>();
-        while (true) {
-            Optional<FastaEntryMetadata> fastaEntryMetadata = readNext(position);
-            if (fastaEntryMetadata.isEmpty()) break;
-            entries.add(fastaEntryMetadata.get());
-            position = fastaEntryMetadata.get().getSequenceIndex().lastBaseByte; // read from the end of last sequence
+        List<SequenceEntryMetadata> entries = new ArrayList<>();
+
+        switch (fileFormat) {
+            case FASTA:
+                while (true) {
+                    Optional<SequenceEntryMetadata> fastaEntryMetadata = readNextFastaEntry(position);
+                    if (fastaEntryMetadata.isEmpty()) break;
+                    entries.add(fastaEntryMetadata.get());
+                    position = fastaEntryMetadata
+                            .get()
+                            .getSequenceIndex()
+                            .lastBaseByte; // read from the end of last sequence
+                }
+                break;
+            case SINGLE_SEQUENCE:
+                Optional<SequenceEntryMetadata> sequenceEntryMetadata = readFileAsSequence();
+                if (sequenceEntryMetadata.isEmpty()) break;
+                entries.add(sequenceEntryMetadata.get());
+                break;
+            default:
+                throw new FastaFileException("Unsupported file format: " + fileFormat);
         }
         return entries;
     }
 
     /** Reads the next FASTA entry starting at or after 'from'. */
-    private Optional<FastaEntryMetadata> readNext(long from) throws FastaFileException {
+    private Optional<SequenceEntryMetadata> readNextFastaEntry(long from) throws FastaFileException {
         try {
             OptionalLong headerPosOpt = seekToNextHeader(from);
             if (headerPosOpt.isEmpty()) return Optional.empty();
@@ -205,13 +220,13 @@ public class SequentialFileReader implements AutoCloseable {
             if (headerLine == null) throw new FastaFileException("Header is malformed at byte " + headerPos);
 
             long sequenceStartPos = channel.position(); // first byte after header line is the sequence position
-            SequenceIndexBuilder sib = new SequenceIndexBuilder(channel, fileSize, alphabet);
+            SequenceIndexBuilder sib = new SequenceIndexBuilder(channel, alphabet, Optional.of(GT));
             SequenceIndex index = sib.buildFrom(sequenceStartPos);
 
             // Move reader cursor to the sequence start position
             channel.position(sequenceStartPos);
 
-            FastaEntryMetadata e = new FastaEntryMetadata();
+            SequenceEntryMetadata e = new SequenceEntryMetadata();
             e.setHeaderLine(headerLine);
             e.setFastaStartByte(headerPos);
             e.setSequenceIndex(index);
@@ -220,6 +235,26 @@ public class SequentialFileReader implements AutoCloseable {
         } catch (IOException io) {
             long pos = safePos();
             throw new FastaFileException("I/O while reading FASTA at byte " + pos + ": " + io.getMessage(), io);
+        }
+    }
+
+    /** Reads the single sequence from start to end */
+    private Optional<SequenceEntryMetadata> readFileAsSequence() throws FastaFileException {
+        try {
+            long sequenceStartPos = channel.position(); // first byte should be sequence start
+            SequenceIndexBuilder sib = new SequenceIndexBuilder(channel, alphabet, Optional.empty());
+            SequenceIndex index = sib.buildFrom(sequenceStartPos);
+
+            // Move reader cursor to the sequence start position
+            channel.position(sequenceStartPos);
+
+            SequenceEntryMetadata e = new SequenceEntryMetadata();
+            e.setSequenceIndex(index);
+
+            return Optional.of(e);
+        } catch (IOException io) {
+            long pos = safePos();
+            throw new FastaFileException("I/O while reading Sequence at byte " + pos + ": " + io.getMessage(), io);
         }
     }
 

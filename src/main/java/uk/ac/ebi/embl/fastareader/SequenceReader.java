@@ -165,7 +165,7 @@ public class SequenceReader implements AutoCloseable {
      * ownership of the underlying reader.
      */
     private void loadSequence() throws IOException, FastaFileException {
-        List<FastaEntryMetadata> readEntries = reader.readAll();
+        List<SequenceEntryMetadata> readEntries = reader.readFile();
 
         if (readEntries.isEmpty()) throw new SequenceFileException("No sequence entry found in the file.");
         if (readEntries.size() > 1)

@@ -187,7 +187,7 @@ public final class FastaReader implements AutoCloseable {
      * ownership of the underlying reader.
      */
     private void loadEntries() throws IOException, FastaFileException {
-        List<FastaEntryMetadata> readEntries = reader.readAll();
+        List<SequenceEntryMetadata> readEntries = reader.readFile();
 
         long currentFastaId = 0;
         for (var entry : readEntries) {

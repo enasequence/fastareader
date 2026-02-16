@@ -21,7 +21,7 @@ import java.nio.file.StandardOpenOption;
 import java.util.HashSet;
 import java.util.Set;
 import org.junit.jupiter.api.Test;
-import uk.ac.ebi.embl.fastareader.FastaTestResources;
+import uk.ac.ebi.embl.fastareader.TestResources;
 
 class HeaderLineDecoderTest {
 
@@ -42,7 +42,7 @@ class HeaderLineDecoderTest {
     @Test
     void readsAsciiLineEndingWithLf_andAdvancesPositionPastLf() throws Exception {
         // File content: ">abc\nNEXT"
-        File fasta = FastaTestResources.file("headerutils", "ascii_lf.txt");
+        File fasta = TestResources.file("headerutils", "ascii_lf.txt");
 
         HeaderLineDecoder d = new HeaderLineDecoder(StandardCharsets.UTF_8, endChars(), 8);
 
@@ -60,7 +60,7 @@ class HeaderLineDecoderTest {
         // Ensure BUFFER_SIZE is small so the multibyte sequence is split.
         // File content: ">A¢B\n"
         // UTF-8 bytes for € are E2 82 AC (3 bytes). With BUFFER_SIZE=4 we can force splits.
-        File fasta = FastaTestResources.file("headerutils", "utf8_split.txt");
+        File fasta = TestResources.file("headerutils", "utf8_split.txt");
 
         HeaderLineDecoder d = new HeaderLineDecoder(StandardCharsets.UTF_8, endChars(), 4);
 
@@ -73,7 +73,7 @@ class HeaderLineDecoderTest {
     @Test
     void stopsAtCr_andAdvancesPositionPastCrOnly() throws Exception {
         // File content: ">abc\rNEXT"
-        File fasta = FastaTestResources.file("headerutils", "ascii_cr.txt");
+        File fasta = TestResources.file("headerutils", "ascii_cr.txt");
 
         HeaderLineDecoder d = new HeaderLineDecoder(StandardCharsets.UTF_8, endChars(), 8);
 
@@ -88,7 +88,7 @@ class HeaderLineDecoderTest {
     @Test
     void crlfConsumesOnlyCr_andLeavesLfAsNextByte_sameAsCurrentBehavior() throws Exception {
         // File content: ">abc\r\nNEXT"
-        File fasta = FastaTestResources.file("headerutils", "crlf.txt");
+        File fasta = TestResources.file("headerutils", "crlf.txt");
 
         HeaderLineDecoder d = new HeaderLineDecoder(StandardCharsets.UTF_8, endChars(), 8);
 
@@ -104,7 +104,7 @@ class HeaderLineDecoderTest {
     @Test
     void readsLineAtEofWithoutNewline_andPositionsAtFileEnd() throws Exception {
         // File content: ">no_newline_at_eof"
-        File fasta = FastaTestResources.file("headerutils", "no_newline.txt");
+        File fasta = TestResources.file("headerutils", "no_newline.txt");
 
         HeaderLineDecoder d = new HeaderLineDecoder(StandardCharsets.UTF_8, endChars(), 8);
 
@@ -119,7 +119,7 @@ class HeaderLineDecoderTest {
 
     @Test
     void returnsNullIfFromAtOrPastEof() throws Exception {
-        File fasta = FastaTestResources.file("headerutils", "ascii_lf.txt");
+        File fasta = TestResources.file("headerutils", "ascii_lf.txt");
 
         HeaderLineDecoder d = new HeaderLineDecoder(StandardCharsets.UTF_8, endChars(), 8);
 
@@ -135,7 +135,7 @@ class HeaderLineDecoderTest {
         // File content:
         // >first
         // >second
-        File fasta = FastaTestResources.file("headerutils", "two_headers.txt");
+        File fasta = TestResources.file("headerutils", "two_headers.txt");
 
         HeaderLineDecoder d = new HeaderLineDecoder(StandardCharsets.UTF_8, endChars(), 4);
 
@@ -152,7 +152,7 @@ class HeaderLineDecoderTest {
     void throwsOnMalformedUtf8_whenReportIsEnabled() throws Exception {
         // File content: ">bad \xC3\x28\n" (bytes that are not valid UTF-8 in the header before newline)
         // In UTF-8, 0xC3 must be followed by 0x80..0xBF; 0x28 '(' is invalid.
-        File fasta = FastaTestResources.file("headerutils", "malformed_utf8.txt");
+        File fasta = TestResources.file("headerutils", "malformed_utf8.txt");
 
         HeaderLineDecoder d = new HeaderLineDecoder(StandardCharsets.UTF_8, endChars(), 8);
 

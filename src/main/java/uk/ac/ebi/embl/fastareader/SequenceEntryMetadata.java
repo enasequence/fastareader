@@ -16,9 +16,9 @@ import uk.ac.ebi.embl.fastareader.sequenceutils.SequenceIndex;
 
 @Getter
 @Setter
-class FastaEntryMetadata {
+class SequenceEntryMetadata {
     String headerLine;
     // information needed for accessing the file
-    long fastaStartByte; // position of '>' in the file
+    Long fastaStartByte; // position of '>' in the file
     SequenceIndex sequenceIndex; // a smart index for querying ranges in the file
 }

@@ -26,23 +26,23 @@ class FastaReaderIntegrationTest {
     @Test
     void doesNotTolerateImproperHeaders() throws IOException {
         // by improper headers, i mean ones that do not start in > and end with a newline as per the general spec */
-        File fasta = FastaTestResources.file("fasta", "malformed_headerline_fasta.txt");
+        File fasta = TestResources.file("fasta", "malformed_headerline_fasta.txt");
 
         assertThrows(FastaFileException.class, () -> new FastaReader(fasta));
     }
 
     @Test
     void toleratesDifferentFastaHeaders() throws IOException {
-        File fasta = FastaTestResources.file(
-                "fasta", "differing_headerline_fasta.txt"); // this example has varying fasta headers
+        File fasta =
+                TestResources.file("fasta", "differing_headerline_fasta.txt"); // this example has varying fasta headers
 
         assertDoesNotThrow(() -> new FastaReader(fasta));
     }
 
     @Test
     void readsUnicodeHeadersCorrectly() throws IOException, FastaFileException {
-        File fasta = FastaTestResources.file(
-                "fasta", "differing_headerline_fasta.txt"); // this example has varying fasta headers
+        File fasta =
+                TestResources.file("fasta", "differing_headerline_fasta.txt"); // this example has varying fasta headers
 
         try (FastaReader service = new FastaReader(fasta)) {
             List<FastaEntry> entries = service.getFastaEntries();
@@ -67,7 +67,7 @@ class FastaReaderIntegrationTest {
 
     @Test
     void proccessingEntriesWithCarriageReturnsCorrectly() throws IOException, FastaFileException {
-        File fasta = FastaTestResources.file("fasta", "example_with_carriage_return_char.txt");
+        File fasta = TestResources.file("fasta", "example_with_carriage_return_char.txt");
         try (FastaReader service = new FastaReader(fasta)) {
 
             List<FastaEntry> entries = service.getFastaEntries();
@@ -134,7 +134,7 @@ class FastaReaderIntegrationTest {
 
     @Test
     void gettingSequenceSliceAsStringReturnsCorrectly() throws IOException, FastaFileException {
-        File fasta = FastaTestResources.file("fasta", "example.txt");
+        File fasta = TestResources.file("fasta", "example.txt");
         try (FastaReader service = new FastaReader(fasta)) {
 
             List<FastaEntry> entries = service.getFastaEntries();
@@ -185,7 +185,7 @@ class FastaReaderIntegrationTest {
 
     @Test
     void gettingSequenceViaReaderGivesCorrectResult() throws IOException, FastaFileException {
-        File fasta = FastaTestResources.file("fasta", "example.txt");
+        File fasta = TestResources.file("fasta", "example.txt");
         try (FastaReader service = new FastaReader(fasta)) {
 
             List<FastaEntry> entries = service.getFastaEntries();
@@ -249,7 +249,7 @@ class FastaReaderIntegrationTest {
 
     @Test
     void gettingStringAsAStringVsStreamProducesSameResultSlices() throws IOException, FastaFileException {
-        File fasta = FastaTestResources.file("fasta", "example.txt");
+        File fasta = TestResources.file("fasta", "example.txt");
         try (FastaReader service = new FastaReader(fasta)) {
 
             List<FastaEntry> entries = service.getFastaEntries();
@@ -316,7 +316,7 @@ class FastaReaderIntegrationTest {
     // and run the test
     // @Test
     void readBigSequenceSuccessfully() throws IOException, FastaFileException {
-        File fasta = FastaTestResources.file("fasta", "single_fasta_large_sequence.txt");
+        File fasta = TestResources.file("fasta", "single_fasta_large_sequence.txt");
         try (FastaReader service = new FastaReader(fasta)) {
 
             List<FastaEntry> entries = service.getFastaEntries();
