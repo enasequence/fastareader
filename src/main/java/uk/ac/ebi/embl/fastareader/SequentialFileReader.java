@@ -19,7 +19,7 @@ import uk.ac.ebi.embl.fastareader.exception.FastaFileException;
 import uk.ac.ebi.embl.fastareader.headerutils.HeaderLineDecoder;
 import uk.ac.ebi.embl.fastareader.sequenceutils.*;
 
-public class SequentialFastaFileReader implements AutoCloseable {
+public class SequentialFileReader implements AutoCloseable {
 
     private static final int BUFFER_SIZE = 4 * 1024 * 1024; // 4 MB
     private static final int CHAR_BUF_SIZE = 512 * 1024; // 512 KB
@@ -30,18 +30,20 @@ public class SequentialFastaFileReader implements AutoCloseable {
     private final FileChannel channel;
     private final long fileSize;
     private final SequenceAlphabet alphabet;
+    private final Header headerSwitch;
     HeaderLineDecoder headerLineDecoder;
 
-    public SequentialFastaFileReader(File file) throws IOException {
-        this(file, SequenceAlphabet.defaultNucleotideAlphabet());
+    public SequentialFileReader(File file, Header headerSwitch) throws IOException {
+        this(file, SequenceAlphabet.defaultNucleotideAlphabet(), headerSwitch);
     }
 
-    public SequentialFastaFileReader(File file, SequenceAlphabet alphabet) throws IOException {
+    public SequentialFileReader(File file, SequenceAlphabet alphabet, Header headerSwitch) throws IOException {
         Objects.requireNonNull(file, "Input FASTA file is null");
         if (!file.exists()) throw new FileNotFoundException(file.getAbsolutePath());
         if (file.isDirectory()) throw new FileNotFoundException("Directory: " + file.getAbsolutePath());
         if (!file.canRead()) throw new IllegalArgumentException("No read permission: " + file.getAbsolutePath());
         this.alphabet = Objects.requireNonNull(alphabet, "alphabet");
+        this.headerSwitch = Objects.requireNonNull(headerSwitch, "headerSwitch");
         this.channel = new FileInputStream(file).getChannel();
         this.fileSize = channel.size();
         this.headerLineDecoder =
