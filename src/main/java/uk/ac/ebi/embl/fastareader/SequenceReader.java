@@ -29,7 +29,7 @@ import uk.ac.ebi.embl.fastareader.sequenceutils.SequenceIndex;
  * The alphabet of allowed bases and skippable allowed characters can be modified with input parameters.
  * Suitable for high-throughput parsing and random-access workflows. </p>
  *
- * <p>Intended for "sequence-only" inputs (no FASTA headers, no quality scores).</p>
+ * <p>Intended for UTF-8 encoded "sequence-only" inputs (no FASTA headers, no quality scores).</p>
  */
 public class SequenceReader implements AutoCloseable {
     private int UTF_8_CHECK_MAXIMUM_BYTES =
@@ -101,7 +101,7 @@ public class SequenceReader implements AutoCloseable {
     }
 
     /**
-     * Return a sequence slice for reader [fromBase..toBase] (1-based, inclusive) for the given ID.
+     * Return a sequence slice for reader [fromBase..toBase] (1-based, inclusive).
      * Uses the cached index to translate bases -> bytes, then asks the reader to stream
      * ASCII bytes while skipping '\n' and '\r' on the fly.
      */
@@ -110,9 +110,9 @@ public class SequenceReader implements AutoCloseable {
     }
 
     /**
-     * Return a sequence slice for reader [fromBase..toBase] (1-based, inclusive) for the given ID.
+     * Return a sequence slice for reader [fromBase..toBase] (1-based, inclusive).
      * Uses the cached index to translate bases -> bytes, then asks the reader to stream
-     * ASCII bytes while skipping '\n' and '\r' on the fly.
+     * ASCII bytes while skipping non-base tolerated characters (by default \n, \r) on the fly.
      *
      * You can choose whether to read the whole sequence or the interval not including edge N's using the last parameter.
      */
@@ -164,8 +164,8 @@ public class SequenceReader implements AutoCloseable {
     }
 
     /**
-     * Performs a one-time scan of the sequence file to build in-memory sequence indexes.
-     * The cached indexes are later used to translate base ranges into byte spans for efficient random-access reads.
+     * Performs a one-time scan of the sequence file to build in-memory sequence index.
+     * The cached index is later used to translate base ranges into byte spans for efficient random-access reads.
      *
      * This method is called once during construction and requires exclusive
      * ownership of the underlying reader.
