@@ -15,11 +15,11 @@ import java.nio.ByteBuffer;
 import java.nio.channels.FileChannel;
 import java.nio.charset.StandardCharsets;
 import java.util.*;
-import uk.ac.ebi.embl.fastareader.exception.FastaFileException;
+import uk.ac.ebi.embl.fastareader.exception.SequenceReadingException;
 import uk.ac.ebi.embl.fastareader.headerutils.HeaderLineDecoder;
 import uk.ac.ebi.embl.fastareader.sequenceutils.*;
 
-public class SequentialFileReader implements AutoCloseable {
+class InternalReader implements AutoCloseable {
 
     private static final int BUFFER_SIZE = 4 * 1024 * 1024; // 4 MB
     private static final int CHAR_BUF_SIZE = 512 * 1024; // 512 KB
@@ -33,11 +33,11 @@ public class SequentialFileReader implements AutoCloseable {
     private final FileFormat fileFormat;
     HeaderLineDecoder headerLineDecoder;
 
-    public SequentialFileReader(File file, FileFormat fileFormat) throws IOException {
+    InternalReader(File file, FileFormat fileFormat) throws IOException {
         this(file, SequenceAlphabet.defaultNucleotideAlphabet(), fileFormat);
     }
 
-    public SequentialFileReader(File file, SequenceAlphabet alphabet, FileFormat fileFormat) throws IOException {
+    InternalReader(File file, SequenceAlphabet alphabet, FileFormat fileFormat) throws IOException {
         Objects.requireNonNull(file, "Input FASTA file is null");
         if (!file.exists()) throw new FileNotFoundException(file.getAbsolutePath());
         if (file.isDirectory()) throw new FileNotFoundException("Directory: " + file.getAbsolutePath());
@@ -55,11 +55,11 @@ public class SequentialFileReader implements AutoCloseable {
         channel.close();
     }
 
-    public boolean readingFile() {
+    boolean readingFile() {
         return channel.isOpen();
     }
 
-    public String getSequenceSliceString(ByteSpan span) throws IOException {
+    String getSequenceSliceString(ByteSpan span) throws IOException {
         long byteStart = span.start;
         long byteEndExclusive = span.endEx;
 
@@ -94,7 +94,7 @@ public class SequentialFileReader implements AutoCloseable {
 
     /** Char-stream view over [span.start, span.endEx): ASCII decode, skip LF/CR.
      *  Uses absolute reads; does NOT change channel.position(). */
-    public java.io.Reader getSequenceSliceReader(ByteSpan span) {
+    java.io.Reader getSequenceSliceReader(ByteSpan span) {
         final long start = span.start;
         final long endEx = span.endEx;
 
@@ -182,7 +182,7 @@ public class SequentialFileReader implements AutoCloseable {
         };
     }
 
-    public List<SequenceEntryMetadata> readFile() throws FastaFileException, IOException {
+    List<SequenceEntryMetadata> readFile() throws SequenceReadingException, IOException {
         long position = 0;
         List<SequenceEntryMetadata> entries = new ArrayList<>();
 
@@ -198,26 +198,27 @@ public class SequentialFileReader implements AutoCloseable {
                             .lastBaseByte; // read from the end of last sequence
                 }
                 break;
-            case SINGLE_SEQUENCE:
+            case PLAIN_SINGLE_SEQUENCE:
                 Optional<SequenceEntryMetadata> sequenceEntryMetadata = readFileAsSequence();
                 if (sequenceEntryMetadata.isEmpty()) break;
                 entries.add(sequenceEntryMetadata.get());
                 break;
             default:
-                throw new FastaFileException("Unsupported file format: " + fileFormat);
+                throw new SequenceReadingException("Unsupported file format: " + fileFormat);
         }
         return entries;
     }
 
     /** Reads the next FASTA entry starting at or after 'from'. */
-    private Optional<SequenceEntryMetadata> readNextFastaEntry(long from) throws FastaFileException {
+    private Optional<SequenceEntryMetadata> readNextFastaEntry(long from) throws SequenceReadingException {
         try {
             OptionalLong headerPosOpt = seekToNextHeader(from);
             if (headerPosOpt.isEmpty()) return Optional.empty();
 
             long headerPos = headerPosOpt.getAsLong();
             String headerLine = headerLineDecoder.readHeaderLine(channel, headerPos); // readHeaderLine(headerPos);
-            if (headerLine == null) throw new FastaFileException("Header is malformed at byte " + headerPos);
+            if (headerLine == null)
+                throw new SequenceReadingException("FASTA header is malformed at byte " + headerPos);
 
             long sequenceStartPos = channel.position(); // first byte after header line is the sequence position
             SequenceIndexBuilder sib = new SequenceIndexBuilder(channel, alphabet, Optional.of(GT));
@@ -234,12 +235,12 @@ public class SequentialFileReader implements AutoCloseable {
             return Optional.of(e);
         } catch (IOException io) {
             long pos = safePos();
-            throw new FastaFileException("I/O while reading FASTA at byte " + pos + ": " + io.getMessage(), io);
+            throw new SequenceReadingException("I/O while reading FASTA at byte " + pos + ": " + io.getMessage(), io);
         }
     }
 
     /** Reads the single sequence from start to end */
-    private Optional<SequenceEntryMetadata> readFileAsSequence() throws FastaFileException {
+    private Optional<SequenceEntryMetadata> readFileAsSequence() throws SequenceReadingException {
         try {
             long sequenceStartPos = channel.position(); // first byte should be sequence start
             SequenceIndexBuilder sib = new SequenceIndexBuilder(channel, alphabet, Optional.empty());
@@ -254,7 +255,8 @@ public class SequentialFileReader implements AutoCloseable {
             return Optional.of(e);
         } catch (IOException io) {
             long pos = safePos();
-            throw new FastaFileException("I/O while reading Sequence at byte " + pos + ": " + io.getMessage(), io);
+            throw new SequenceReadingException(
+                    "I/O while reading sequence at byte " + pos + ": " + io.getMessage(), io);
         }
     }
 

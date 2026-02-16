@@ -17,7 +17,7 @@ import java.nio.charset.StandardCharsets;
 import java.util.ArrayList;
 import java.util.List;
 import java.util.Optional;
-import uk.ac.ebi.embl.fastareader.exception.FastaFileException;
+import uk.ac.ebi.embl.fastareader.exception.SequenceReadingException;
 
 public final class SequenceIndexBuilder {
     private static final int SCAN_BUF_SIZE = 4 * 1024 * 1024; // 4 MB
@@ -40,7 +40,7 @@ public final class SequenceIndexBuilder {
     }
 
     /** Build a SequenceIndex starting at 'startPos' (first byte after header line). */
-    public SequenceIndex buildFrom(long startPos) throws IOException, FastaFileException {
+    public SequenceIndex buildFrom(long startPos) throws IOException, SequenceReadingException {
         ScanState s = new ScanState(startPos, fileSize);
         ByteBuffer buf = newScanBuffer();
 
@@ -111,7 +111,7 @@ public final class SequenceIndexBuilder {
     }
 
     /** Returns true if we hit the next header and should stop scanning this entry. */
-    private boolean processBuffer(ByteBuffer buf, ScanState s) throws IOException, FastaFileException {
+    private boolean processBuffer(ByteBuffer buf, ScanState s) throws IOException, SequenceReadingException {
         buf.flip();
         while (buf.hasRemaining()) {
             int idx = buf.position();
@@ -130,7 +130,7 @@ public final class SequenceIndexBuilder {
                 s.charCounts[ci]++;
                 observeBase(abs, s);
             } else {
-                throw new FastaFileException(String.format(
+                throw new SequenceReadingException(String.format(
                         "Illegal character '%s' (byte value: %d) at absolute file position %d. "
                                 + "This character is not allowed by the current FASTA alphabet. "
                                 + "Expected only characters: %s",

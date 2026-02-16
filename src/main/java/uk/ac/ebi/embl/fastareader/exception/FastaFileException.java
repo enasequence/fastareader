@@ -11,7 +11,6 @@
 package uk.ac.ebi.embl.fastareader.exception;
 
 public class FastaFileException extends Exception {
-
     public FastaFileException() {}
 
     public FastaFileException(String message) {

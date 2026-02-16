@@ -18,6 +18,7 @@ import lombok.Getter;
 import lombok.Setter;
 import uk.ac.ebi.embl.fastareader.encoding.Utf8Detector;
 import uk.ac.ebi.embl.fastareader.exception.FastaFileException;
+import uk.ac.ebi.embl.fastareader.exception.SequenceReadingException;
 import uk.ac.ebi.embl.fastareader.sequenceutils.ByteSpan;
 import uk.ac.ebi.embl.fastareader.sequenceutils.SequenceAlphabet;
 import uk.ac.ebi.embl.fastareader.sequenceutils.SequenceIndex;
@@ -38,7 +39,7 @@ public final class FastaReader implements AutoCloseable {
     // Maps fastaReaderId to its corresponding SequenceIndex
     private HashMap<Long, SequenceIndex> sequenceIndexes = new HashMap<>();
     private File file;
-    private SequentialFileReader reader;
+    private InternalReader reader;
 
     /** Initializes FASTA reader, skimming through the whole file right away. */
     public FastaReader(File fastaFile) throws FastaFileException, IOException {
@@ -51,7 +52,7 @@ public final class FastaReader implements AutoCloseable {
      * */
     public FastaReader(File fastaFile, SequenceAlphabet alphabet) throws FastaFileException, IOException {
         this.file = Objects.requireNonNull(fastaFile, "fastaFile");
-        this.reader = new SequentialFileReader(fastaFile, alphabet, FileFormat.FASTA);
+        this.reader = new InternalReader(fastaFile, alphabet, FileFormat.FASTA);
         this.sequenceIndexes = new HashMap<>();
         this.fastaEntries = new ArrayList<>();
 
@@ -156,7 +157,7 @@ public final class FastaReader implements AutoCloseable {
     public void openNewFile(File fastaFile) throws FastaFileException, IOException {
         close(); // if already open, close first
         this.file = Objects.requireNonNull(fastaFile, "file");
-        reader = new SequentialFileReader(fastaFile, SequenceAlphabet.defaultNucleotideAlphabet(), FileFormat.FASTA);
+        reader = new InternalReader(fastaFile, SequenceAlphabet.defaultNucleotideAlphabet(), FileFormat.FASTA);
         loadEntries();
     }
 
@@ -187,7 +188,12 @@ public final class FastaReader implements AutoCloseable {
      * ownership of the underlying reader.
      */
     private void loadEntries() throws IOException, FastaFileException {
-        List<SequenceEntryMetadata> readEntries = reader.readFile();
+        List<SequenceEntryMetadata> readEntries;
+        try {
+            readEntries = reader.readFile();
+        } catch (SequenceReadingException e) {
+            throw new FastaFileException(e);
+        }
 
         long currentFastaId = 0;
         for (var entry : readEntries) {

@@ -8,17 +8,21 @@
  * CONDITIONS OF ANY KIND, either express or implied. See the License for the
  * specific language governing permissions and limitations under the License.
  */
-package uk.ac.ebi.embl.fastareader;
+package uk.ac.ebi.embl.fastareader.exception;
 
-enum FileFormat {
-    /**
-     * Header on, meaning the expected file format is a generic FASTA format
-     * with multiple sequences, with a header starting with '>' before each sequence
-     */
-    FASTA,
-    /**
-     * The expected file format is a raw sequence with nucleotides (ACGTCGG...) in the file,
-     * with nothing else - no metadata or extra information.
-     */
-    PLAIN_SINGLE_SEQUENCE
+public class SequenceReadingException extends Exception {
+
+    public SequenceReadingException() {}
+
+    public SequenceReadingException(String message) {
+        super(message);
+    }
+
+    public SequenceReadingException(Throwable cause) {
+        super(cause);
+    }
+
+    public SequenceReadingException(String message, Throwable cause) {
+        super(message, cause);
+    }
 }

@@ -16,23 +16,22 @@ import static org.junit.jupiter.api.Assertions.assertEquals;
 import java.io.File;
 import java.io.IOException;
 import org.junit.jupiter.api.Test;
-import uk.ac.ebi.embl.fastareader.exception.FastaFileException;
 import uk.ac.ebi.embl.fastareader.exception.SequenceFileException;
 
-public class SequenceReaderIntegrationTest {
+public class PlainSequenceReaderIntegrationTest {
 
     @Test
     void doesNotTolerateAnythingExceptSequenceAlphabetInFile() throws IOException {
         File sequenceFile =
                 TestResources.file("sequence", "malformed_example.txt"); // this example has varying fasta headers
 
-        assertThrows(SequenceFileException.class, () -> new SequenceReader(sequenceFile));
+        assertThrows(SequenceFileException.class, () -> new PlainSequenceReader(sequenceFile));
     }
 
     @Test
-    void countsOnlyNsSequenceCorrectly() throws IOException, FastaFileException {
+    void countsOnlyNsSequenceCorrectly() throws IOException, SequenceFileException {
         File sequenceFile = TestResources.file("sequence", "only_ns_example.txt");
-        try (SequenceReader service = new SequenceReader(sequenceFile)) {
+        try (PlainSequenceReader service = new PlainSequenceReader(sequenceFile)) {
 
             SequenceEntry sequence = service.getSequenceInfo();
             assertEquals(43, sequence.leadingNsCount, "leading Ns");
@@ -42,9 +41,9 @@ public class SequenceReaderIntegrationTest {
     }
 
     @Test
-    void proccessingSequenceWithCarriageReturnsCorrectly() throws IOException, FastaFileException {
+    void proccessingSequenceWithCarriageReturnsCorrectly() throws IOException, SequenceFileException {
         File sequenceFile = TestResources.file("sequence", "example_with_carriage_return_char.txt");
-        try (SequenceReader service = new SequenceReader(sequenceFile)) {
+        try (PlainSequenceReader service = new PlainSequenceReader(sequenceFile)) {
 
             SequenceEntry sequence = service.getSequenceInfo();
 
@@ -79,9 +78,9 @@ public class SequenceReaderIntegrationTest {
     }
 
     @Test
-    void gettingSequenceSliceAsStringReturnsCorrectly() throws IOException, FastaFileException {
+    void gettingSequenceSliceAsStringReturnsCorrectly() throws IOException, SequenceFileException {
         File sequenceFile = TestResources.file("sequence", "example.txt");
-        try (SequenceReader service = new SequenceReader(sequenceFile)) {
+        try (PlainSequenceReader service = new PlainSequenceReader(sequenceFile)) {
 
             SequenceEntry sequence = service.getSequenceInfo();
 
@@ -100,9 +99,9 @@ public class SequenceReaderIntegrationTest {
     }
 
     @Test
-    void gettingSequenceViaReaderGivesCorrectResult() throws IOException, FastaFileException {
+    void gettingSequenceViaReaderGivesCorrectResult() throws IOException, SequenceFileException {
         File sequenceFile = TestResources.file("sequence", "example.txt");
-        try (SequenceReader service = new SequenceReader(sequenceFile)) {
+        try (PlainSequenceReader service = new PlainSequenceReader(sequenceFile)) {
 
             SequenceEntry sequence = service.getSequenceInfo();
 
@@ -139,9 +138,9 @@ public class SequenceReaderIntegrationTest {
     }
 
     @Test
-    void gettingStringAsAStringVsStreamProducesSameResultSlices() throws IOException, FastaFileException {
+    void gettingStringAsAStringVsStreamProducesSameResultSlices() throws IOException, SequenceFileException {
         File sequenceFile = TestResources.file("sequence", "example.txt");
-        try (SequenceReader service = new SequenceReader(sequenceFile)) {
+        try (PlainSequenceReader service = new PlainSequenceReader(sequenceFile)) {
 
             SequenceEntry sequenceInfo = service.getSequenceInfo();
 

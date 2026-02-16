@@ -22,7 +22,7 @@ import java.util.List;
 import java.util.Optional;
 import org.junit.jupiter.api.Test;
 import org.junit.jupiter.api.io.TempDir;
-import uk.ac.ebi.embl.fastareader.exception.FastaFileException;
+import uk.ac.ebi.embl.fastareader.exception.SequenceReadingException;
 
 public class SequenceIndexBuilderTest {
 
@@ -287,7 +287,7 @@ public class SequenceIndexBuilderTest {
             SequenceIndexBuilder sib =
                     new SequenceIndexBuilder(ch, SequenceAlphabet.defaultNucleotideAlphabet(), Optional.empty());
 
-            assertThrows(FastaFileException.class, () -> sib.buildFrom(0));
+            assertThrows(SequenceReadingException.class, () -> sib.buildFrom(0));
         }
     }
 }

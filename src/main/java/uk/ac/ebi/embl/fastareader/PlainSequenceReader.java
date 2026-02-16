@@ -15,23 +15,23 @@ import java.io.IOException;
 import java.io.Reader;
 import java.util.*;
 import uk.ac.ebi.embl.fastareader.encoding.Utf8Detector;
-import uk.ac.ebi.embl.fastareader.exception.FastaFileException;
 import uk.ac.ebi.embl.fastareader.exception.SequenceFileException;
+import uk.ac.ebi.embl.fastareader.exception.SequenceReadingException;
 import uk.ac.ebi.embl.fastareader.sequenceutils.ByteSpan;
 import uk.ac.ebi.embl.fastareader.sequenceutils.SequenceAlphabet;
 import uk.ac.ebi.embl.fastareader.sequenceutils.SequenceIndex;
 
-public class SequenceReader implements AutoCloseable {
+public class PlainSequenceReader implements AutoCloseable {
     private int UTF_8_CHECK_MAXIMUM_BYTES =
             1024 * 1024; // check just preliminary first 1Mb to confirm encoding is likely UTF8
 
     public SequenceEntry sequenceEntry = null;
     private SequenceIndex sequenceIndex = null;
     private File file;
-    private SequentialFileReader reader;
+    private InternalReader reader;
 
     /** Initializes Sequence reader, skimming through the whole file right away. */
-    public SequenceReader(File sequenceFile) throws FastaFileException, IOException {
+    public PlainSequenceReader(File sequenceFile) throws SequenceFileException, IOException {
         this(sequenceFile, SequenceAlphabet.defaultNucleotideAlphabet());
     }
 
@@ -39,18 +39,15 @@ public class SequenceReader implements AutoCloseable {
      * Initializes Sequence reader, skimming through the whole file right away.
      * Adds the option to define your own desired SequenceAlphabet and a list of tolerable characters in the sequence (usually eg. \n, \r)
      * */
-    public SequenceReader(File sequenceFile, SequenceAlphabet alphabet) throws SequenceFileException, IOException {
+    public PlainSequenceReader(File sequenceFile, SequenceAlphabet alphabet)
+            throws SequenceFileException, IOException {
         this.file = Objects.requireNonNull(sequenceFile, "sequenceFile");
-        this.reader = new SequentialFileReader(sequenceFile, alphabet, FileFormat.SINGLE_SEQUENCE);
+        this.reader = new InternalReader(sequenceFile, alphabet, FileFormat.PLAIN_SINGLE_SEQUENCE);
         this.sequenceIndex = null;
         this.sequenceEntry = null;
 
-        try {
-            checkIfUtf8(sequenceFile);
-            loadSequence();
-        } catch (FastaFileException e) {
-            throw new SequenceFileException(e); // small wrap to avoid fasta file exception confusion
-        }
+        checkIfUtf8(sequenceFile);
+        loadSequence();
     }
 
     // ---------------------------- queries ----------------------------
@@ -61,7 +58,7 @@ public class SequenceReader implements AutoCloseable {
     }
 
     /** Return a sequence slice as a String (no EOLs) for [fromBase..toBase] inclusive. */
-    public String getSequenceSliceString(long fromBase, long toBase) throws FastaFileException {
+    public String getSequenceSliceString(long fromBase, long toBase) throws SequenceFileException {
         return getSequenceSliceString(fromBase, toBase, SequenceRangeOption.WHOLE_SEQUENCE);
     }
 
@@ -99,7 +96,7 @@ public class SequenceReader implements AutoCloseable {
      * Uses the cached index to translate bases -> bytes, then asks the reader to stream
      * ASCII bytes while skipping '\n' and '\r' on the fly.
      */
-    public Reader getSequenceSliceReader(long fromBase, long toBase) throws FastaFileException {
+    public Reader getSequenceSliceReader(long fromBase, long toBase) throws SequenceFileException {
         return getSequenceSliceReader(fromBase, toBase, SequenceRangeOption.WHOLE_SEQUENCE);
     }
 
@@ -130,11 +127,11 @@ public class SequenceReader implements AutoCloseable {
 
     // ---------------------------- interactions with the reader ----------------------------
 
-    public void openNewFile(File fastaFile) throws FastaFileException, IOException {
+    public void openNewFile(File sequenceFile) throws SequenceFileException, IOException {
         close(); // if already open, close first
-        this.file = Objects.requireNonNull(fastaFile, "file");
-        reader = new SequentialFileReader(
-                fastaFile, SequenceAlphabet.defaultNucleotideAlphabet(), FileFormat.SINGLE_SEQUENCE);
+        this.file = Objects.requireNonNull(sequenceFile, "file");
+        reader = new InternalReader(
+                sequenceFile, SequenceAlphabet.defaultNucleotideAlphabet(), FileFormat.PLAIN_SINGLE_SEQUENCE);
         loadSequence();
     }
 
@@ -149,11 +146,11 @@ public class SequenceReader implements AutoCloseable {
         }
     }
 
-    // ----------------------------- helper methods for actually loading the fastaEntries ------------------
+    // ----------------------------- helper methods for actually loading the plain sequence ------------------
 
-    private void checkIfUtf8(File file) throws IOException, FastaFileException {
+    private void checkIfUtf8(File file) throws IOException, SequenceFileException {
         if (!Utf8Detector.isProbablyUtf8(file.toPath(), UTF_8_CHECK_MAXIMUM_BYTES)) {
-            throw new FastaFileException("File is not a UTF-8 compliant file, and as such cannot be processed");
+            throw new SequenceFileException("File is not a UTF-8 compliant file, and as such cannot be processed");
         }
     }
 
@@ -164,8 +161,13 @@ public class SequenceReader implements AutoCloseable {
      * This method is called once during construction and requires exclusive
      * ownership of the underlying reader.
      */
-    private void loadSequence() throws IOException, FastaFileException {
-        List<SequenceEntryMetadata> readEntries = reader.readFile();
+    private void loadSequence() throws IOException, SequenceFileException {
+        List<SequenceEntryMetadata> readEntries;
+        try{
+            readEntries = reader.readFile();
+        }catch(SequenceReadingException e){
+            throw new SequenceFileException(e);
+        }
 
         if (readEntries.isEmpty()) throw new SequenceFileException("No sequence entry found in the file.");
         if (readEntries.size() > 1)
