@@ -24,9 +24,19 @@ import uk.ac.ebi.embl.fastareader.sequenceutils.SequenceAlphabet;
 import uk.ac.ebi.embl.fastareader.sequenceutils.SequenceIndex;
 
 /**
- * Owns a SequentialFastaEntryReader, keeps all entries + indexes in memory, supports ID renames,
- * and serves base-range slices by mapping (N..M bases) -> byte span via the cached SequenceIndex,
- * then asking the reader to stream bytes while skipping newlines.
+ * Reads generic FASTA formats with sequences efficiently.
+ *
+ * <p>This reader provides fast, buffered access to a file that contains header lines,
+ * and keeps minimum metadata in memory (headers, base counts), while allowing quick random access to slices
+ * or streaming of the sequence. Especially suitable for large sequences, or grabbing headers for further processing. </p>
+ *
+ * <p>One FASTA entry is considered to be one header with an accompanying sequence, in generic format with the only
+ * prerequisite being the greater than '>' character at the start of the header and the next-line '\n' character at
+ * the end of the header line. The base alphabet of the sequence is modifiable, as well as the tolerated non-base characters (commonly \n, \r) in the sequence
+ * which will be ignored when enumerating bases or streaming the sequence. </p>
+ *
+ * <p> One file can contain as many FASTA entries as desired while keeping reading and retrieval fast, as
+ * long as they are UTF-8 encoded and the bases are within the allowed pre-set alphabet. The entries are enumerated from 0 onwards in order of appearance in the file. </p>
  */
 @Getter
 @Setter

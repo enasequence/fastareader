@@ -21,6 +21,16 @@ import uk.ac.ebi.embl.fastareader.sequenceutils.ByteSpan;
 import uk.ac.ebi.embl.fastareader.sequenceutils.SequenceAlphabet;
 import uk.ac.ebi.embl.fastareader.sequenceutils.SequenceIndex;
 
+/**
+ * Reads plain-text biological sequence files efficiently.
+ *
+ * <p>This reader provides fast, buffered access to a file that contains only sequence characters
+ * (e.g. A/C/G/T/N/etc), optionally skipping non-sequence characters such as newlines and carriage returns.
+ * The alphabet of allowed bases and skippable allowed characters can be modified with input parameters.
+ * Suitable for high-throughput parsing and random-access workflows. </p>
+ *
+ * <p>Intended for "sequence-only" inputs (no FASTA headers, no quality scores).</p>
+ */
 public class SequenceReader implements AutoCloseable {
     private int UTF_8_CHECK_MAXIMUM_BYTES =
             1024 * 1024; // check just preliminary first 1Mb to confirm encoding is likely UTF8
