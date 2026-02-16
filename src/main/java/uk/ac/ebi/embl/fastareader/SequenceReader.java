@@ -41,7 +41,7 @@ public class SequenceReader implements AutoCloseable {
      * */
     public SequenceReader(File sequenceFile, SequenceAlphabet alphabet) throws SequenceFileException, IOException {
         this.file = Objects.requireNonNull(sequenceFile, "sequenceFile");
-        this.reader = new SequentialFileReader(sequenceFile, alphabet, Header.OFF);
+        this.reader = new SequentialFileReader(sequenceFile, alphabet, FileFormat.SINGLE_SEQUENCE);
         this.sequenceIndex = null;
         this.sequenceEntry = null;
 
@@ -133,7 +133,8 @@ public class SequenceReader implements AutoCloseable {
     public void openNewFile(File fastaFile) throws FastaFileException, IOException {
         close(); // if already open, close first
         this.file = Objects.requireNonNull(fastaFile, "file");
-        reader = new SequentialFileReader(fastaFile, SequenceAlphabet.defaultNucleotideAlphabet(), Header.OFF);
+        reader = new SequentialFileReader(
+                fastaFile, SequenceAlphabet.defaultNucleotideAlphabet(), FileFormat.SINGLE_SEQUENCE);
         loadSequence();
     }
 

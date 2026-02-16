@@ -30,20 +30,20 @@ public class SequentialFileReader implements AutoCloseable {
     private final FileChannel channel;
     private final long fileSize;
     private final SequenceAlphabet alphabet;
-    private final Header headerSwitch;
+    private final FileFormat fileFormat;
     HeaderLineDecoder headerLineDecoder;
 
-    public SequentialFileReader(File file, Header headerSwitch) throws IOException {
-        this(file, SequenceAlphabet.defaultNucleotideAlphabet(), headerSwitch);
+    public SequentialFileReader(File file, FileFormat fileFormat) throws IOException {
+        this(file, SequenceAlphabet.defaultNucleotideAlphabet(), fileFormat);
     }
 
-    public SequentialFileReader(File file, SequenceAlphabet alphabet, Header headerSwitch) throws IOException {
+    public SequentialFileReader(File file, SequenceAlphabet alphabet, FileFormat fileFormat) throws IOException {
         Objects.requireNonNull(file, "Input FASTA file is null");
         if (!file.exists()) throw new FileNotFoundException(file.getAbsolutePath());
         if (file.isDirectory()) throw new FileNotFoundException("Directory: " + file.getAbsolutePath());
         if (!file.canRead()) throw new IllegalArgumentException("No read permission: " + file.getAbsolutePath());
         this.alphabet = Objects.requireNonNull(alphabet, "alphabet");
-        this.headerSwitch = Objects.requireNonNull(headerSwitch, "headerSwitch");
+        this.fileFormat = Objects.requireNonNull(fileFormat, "fileFormat");
         this.channel = new FileInputStream(file).getChannel();
         this.fileSize = channel.size();
         this.headerLineDecoder =

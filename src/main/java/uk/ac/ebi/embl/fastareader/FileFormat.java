@@ -10,7 +10,15 @@
  */
 package uk.ac.ebi.embl.fastareader;
 
-public enum Header {
-    OFF, //
-    ON // separates sequences with FASTA header
+public enum FileFormat {
+    /**
+     * Header on, meaning the expected file format is a generic FASTA format
+     * with multiple sequences, with a header starting with '>' before each sequence
+     */
+    FASTA,
+    /**
+     * The expected file format is a raw sequence with nucleotides (ACGTCGG...) in the file,
+     * with nothing else - no metadata or extra information.
+     */
+    SINGLE_SEQUENCE
 }

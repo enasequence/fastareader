@@ -51,7 +51,7 @@ public final class FastaReader implements AutoCloseable {
      * */
     public FastaReader(File fastaFile, SequenceAlphabet alphabet) throws FastaFileException, IOException {
         this.file = Objects.requireNonNull(fastaFile, "fastaFile");
-        this.reader = new SequentialFileReader(fastaFile, alphabet, Header.ON);
+        this.reader = new SequentialFileReader(fastaFile, alphabet, FileFormat.FASTA);
         this.sequenceIndexes = new HashMap<>();
         this.fastaEntries = new ArrayList<>();
 
@@ -156,7 +156,7 @@ public final class FastaReader implements AutoCloseable {
     public void openNewFile(File fastaFile) throws FastaFileException, IOException {
         close(); // if already open, close first
         this.file = Objects.requireNonNull(fastaFile, "file");
-        reader = new SequentialFileReader(fastaFile, SequenceAlphabet.defaultNucleotideAlphabet(), Header.ON);
+        reader = new SequentialFileReader(fastaFile, SequenceAlphabet.defaultNucleotideAlphabet(), FileFormat.FASTA);
         loadEntries();
     }
 
