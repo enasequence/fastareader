@@ -53,6 +53,7 @@ public final class FastaReader implements AutoCloseable {
     private HashMap<Long, SequenceIndex> sequenceIndexes = new HashMap<>();
     private File file;
     private InternalReader reader;
+    private SequenceAlphabet alphabet;
 
     /** Initializes FASTA reader, skimming through the whole file right away. */
     public FastaReader(File fastaFile) throws FastaFileException, IOException {
@@ -65,9 +66,10 @@ public final class FastaReader implements AutoCloseable {
      * */
     public FastaReader(File fastaFile, SequenceAlphabet alphabet) throws FastaFileException, IOException {
         this.file = Objects.requireNonNull(fastaFile, "fastaFile");
-        this.reader = new InternalReader(fastaFile, alphabet, FileFormat.FASTA);
         this.sequenceIndexes = new HashMap<>();
         this.fastaEntries = new ArrayList<>();
+        this.alphabet = alphabet;
+        this.reader = new InternalReader(fastaFile, this.alphabet, FileFormat.FASTA);
 
         checkIfUtf8(fastaFile);
         loadEntries();
@@ -165,7 +167,7 @@ public final class FastaReader implements AutoCloseable {
     public void openNewFile(File fastaFile) throws FastaFileException, IOException {
         close(); // if already open, close first
         this.file = Objects.requireNonNull(fastaFile, "file");
-        reader = new InternalReader(fastaFile, SequenceAlphabet.defaultNucleotideAlphabet(), FileFormat.FASTA);
+        reader = new InternalReader(fastaFile, this.alphabet, FileFormat.FASTA);
         checkIfUtf8(fastaFile);
         loadEntries();
     }

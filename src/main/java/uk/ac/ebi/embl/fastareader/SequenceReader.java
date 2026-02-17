@@ -43,6 +43,7 @@ public class SequenceReader implements AutoCloseable {
     private SequenceIndex sequenceIndex = null;
     private File file;
     private InternalReader reader;
+    private SequenceAlphabet alphabet;
 
     /** Initializes Sequence reader, skimming through the whole file right away. */
     public SequenceReader(File sequenceFile) throws SequenceFileException, IOException {
@@ -55,9 +56,10 @@ public class SequenceReader implements AutoCloseable {
      * */
     public SequenceReader(File sequenceFile, SequenceAlphabet alphabet) throws SequenceFileException, IOException {
         this.file = Objects.requireNonNull(sequenceFile, "sequenceFile");
-        this.reader = new InternalReader(sequenceFile, alphabet, FileFormat.PLAIN_SINGLE_SEQUENCE);
         this.sequenceIndex = null;
         this.sequenceEntry = null;
+        this.alphabet = alphabet;
+        this.reader = new InternalReader(sequenceFile, this.alphabet, FileFormat.PLAIN_SINGLE_SEQUENCE);
 
         checkIfUtf8(sequenceFile);
         loadSequence();
@@ -138,8 +140,7 @@ public class SequenceReader implements AutoCloseable {
     public void openNewFile(File sequenceFile) throws SequenceFileException, IOException {
         close(); // if already open, close first
         this.file = Objects.requireNonNull(sequenceFile, "file");
-        reader = new InternalReader(
-                sequenceFile, SequenceAlphabet.defaultNucleotideAlphabet(), FileFormat.PLAIN_SINGLE_SEQUENCE);
+        reader = new InternalReader(sequenceFile, this.alphabet, FileFormat.PLAIN_SINGLE_SEQUENCE);
         checkIfUtf8(sequenceFile);
         loadSequence();
     }
