@@ -18,12 +18,18 @@ import java.io.IOException;
 import org.junit.jupiter.api.Test;
 import uk.ac.ebi.embl.fastareader.exception.SequenceFileException;
 
-public class PlainSequenceReaderIntegrationTest {
+public class SequenceReaderIntegrationTest {
+
+    @Test
+    void doesNotTolerateEmptyFile() throws IOException {
+        File sequenceFile = TestResources.file("sequence", "emptyfile.txt");
+
+        assertThrows(SequenceFileException.class, () -> new SequenceReader(sequenceFile));
+    }
 
     @Test
     void doesNotTolerateAnythingExceptSequenceAlphabetInFile() throws IOException {
-        File sequenceFile =
-                TestResources.file("sequence", "malformed_example.txt"); // this example has varying fasta headers
+        File sequenceFile = TestResources.file("sequence", "malformed_example.txt");
 
         assertThrows(SequenceFileException.class, () -> new SequenceReader(sequenceFile));
     }

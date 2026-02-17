@@ -47,7 +47,6 @@ public final class FastaReader implements AutoCloseable {
 
     /** FASTA entries, each one with a unique fastaReaderId, header line string and basic sequence information */
     @Getter
-    @Setter
     private List<FastaEntry> fastaEntries = new ArrayList<>();
     // Maps fastaReaderId to its corresponding SequenceIndex
     private HashMap<Long, SequenceIndex> sequenceIndexes = new HashMap<>();

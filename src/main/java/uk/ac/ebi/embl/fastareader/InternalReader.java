@@ -252,6 +252,7 @@ class InternalReader implements AutoCloseable {
             SequenceEntryMetadata e = new SequenceEntryMetadata();
             e.setSequenceIndex(index);
 
+            if (e.sequenceIndex.totalBases() == 0) return Optional.empty();
             return Optional.of(e);
         } catch (IOException io) {
             long pos = safePos();
