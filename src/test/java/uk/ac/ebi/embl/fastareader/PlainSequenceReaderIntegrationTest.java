@@ -33,7 +33,7 @@ public class PlainSequenceReaderIntegrationTest {
         File sequenceFile = TestResources.file("sequence", "only_ns_example.txt");
         try (SequenceReader service = new SequenceReader(sequenceFile)) {
 
-            SequenceEntry sequence = service.getSequenceInfo();
+            SequenceEntry sequence = service.getSequenceEntry();
             assertEquals(43, sequence.leadingNsCount, "leading Ns");
             assertEquals(43, sequence.trailingNsCount, "trailing Ns");
             assertEquals(43, sequence.baseCount.get('N'), "total Ns");
@@ -45,7 +45,7 @@ public class PlainSequenceReaderIntegrationTest {
         File sequenceFile = TestResources.file("sequence", "example_with_carriage_return_char.txt");
         try (SequenceReader service = new SequenceReader(sequenceFile)) {
 
-            SequenceEntry sequence = service.getSequenceInfo();
+            SequenceEntry sequence = service.getSequenceEntry();
 
             // From the sample file above:
             assertEquals(9, sequence.leadingNsCount, "leading Ns");
@@ -82,7 +82,7 @@ public class PlainSequenceReaderIntegrationTest {
         File sequenceFile = TestResources.file("sequence", "example.txt");
         try (SequenceReader service = new SequenceReader(sequenceFile)) {
 
-            SequenceEntry sequence = service.getSequenceInfo();
+            SequenceEntry sequence = service.getSequenceEntry();
 
             // From the sample file above:
             assertEquals(2, sequence.leadingNsCount, "ID1 leading Ns");
@@ -103,7 +103,7 @@ public class PlainSequenceReaderIntegrationTest {
         File sequenceFile = TestResources.file("sequence", "example.txt");
         try (SequenceReader service = new SequenceReader(sequenceFile)) {
 
-            SequenceEntry sequence = service.getSequenceInfo();
+            SequenceEntry sequence = service.getSequenceEntry();
 
             // stream whole sequence with the reader
             String streamedSequence;
@@ -142,7 +142,7 @@ public class PlainSequenceReaderIntegrationTest {
         File sequenceFile = TestResources.file("sequence", "example.txt");
         try (SequenceReader service = new SequenceReader(sequenceFile)) {
 
-            SequenceEntry sequenceInfo = service.getSequenceInfo();
+            SequenceEntry sequenceInfo = service.getSequenceEntry();
 
             for (long end = 2; end <= sequenceInfo.totalBases; end++) {
                 // get slice as string

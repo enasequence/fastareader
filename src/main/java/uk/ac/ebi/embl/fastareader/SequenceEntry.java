@@ -12,10 +12,8 @@ package uk.ac.ebi.embl.fastareader;
 
 import java.util.Map;
 import lombok.Getter;
-import lombok.Setter;
 
 @Getter
-@Setter
 public class SequenceEntry {
     public long totalBases;
     public long totalBasesWithoutNBases;
@@ -29,4 +27,17 @@ public class SequenceEntry {
      * Allowed characters not present have a count of 0.
      */
     public Map<Character, Long> baseCount;
+
+    public SequenceEntry(
+            long totalBasesWithoutNBases,
+            long totalBases,
+            long leadingNsCount,
+            long trailingNsCount,
+            Map<Character, Long> baseCount) {
+        this.totalBasesWithoutNBases = totalBasesWithoutNBases;
+        this.totalBases = totalBases;
+        this.leadingNsCount = leadingNsCount;
+        this.trailingNsCount = trailingNsCount;
+        this.baseCount = baseCount;
+    }
 }

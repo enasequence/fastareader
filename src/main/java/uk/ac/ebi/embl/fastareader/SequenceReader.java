@@ -14,6 +14,7 @@ import java.io.File;
 import java.io.IOException;
 import java.io.Reader;
 import java.util.*;
+import lombok.Getter;
 import uk.ac.ebi.embl.fastareader.encoding.Utf8Detector;
 import uk.ac.ebi.embl.fastareader.exception.SequenceFileException;
 import uk.ac.ebi.embl.fastareader.exception.SequenceReadingException;
@@ -32,10 +33,13 @@ import uk.ac.ebi.embl.fastareader.sequenceutils.SequenceIndex;
  * <p>Intended for UTF-8 encoded "sequence-only" inputs (no FASTA headers, no quality scores).</p>
  */
 public class SequenceReader implements AutoCloseable {
-    private int UTF_8_CHECK_MAXIMUM_BYTES =
+    private static final int UTF_8_CHECK_MAXIMUM_BYTES =
             1024 * 1024; // check just preliminary first 1Mb to confirm encoding is likely UTF8
 
-    public SequenceEntry sequenceEntry = null;
+    /** Returns Sequence entry data */
+    @Getter
+    private SequenceEntry sequenceEntry = null;
+
     private SequenceIndex sequenceIndex = null;
     private File file;
     private InternalReader reader;
@@ -60,11 +64,6 @@ public class SequenceReader implements AutoCloseable {
     }
 
     // ---------------------------- queries ----------------------------
-
-    /** Returns Sequence entry data */
-    public SequenceEntry getSequenceInfo() {
-        return sequenceEntry;
-    }
 
     /** Return a sequence slice as a String (no EOLs) for [fromBase..toBase] inclusive. */
     public String getSequenceSliceString(long fromBase, long toBase) throws SequenceFileException {
@@ -141,6 +140,7 @@ public class SequenceReader implements AutoCloseable {
         this.file = Objects.requireNonNull(sequenceFile, "file");
         reader = new InternalReader(
                 sequenceFile, SequenceAlphabet.defaultNucleotideAlphabet(), FileFormat.PLAIN_SINGLE_SEQUENCE);
+        checkIfUtf8(sequenceFile);
         loadSequence();
     }
 
@@ -187,13 +187,12 @@ public class SequenceReader implements AutoCloseable {
                 - entry.sequenceIndex.startNBasesCount
                 - entry.sequenceIndex.endNBasesCount;
 
-        sequenceEntry = new SequenceEntry();
-        sequenceEntry.setTotalBases(entry.sequenceIndex.totalBases());
-        sequenceEntry.setLeadingNsCount(entry.sequenceIndex.startNBasesCount);
-        sequenceEntry.setTrailingNsCount(entry.sequenceIndex.endNBasesCount);
-        sequenceEntry.setBaseCount(entry.sequenceIndex.caseInsensitiveBaseCount);
-        sequenceEntry.setBaseCount(entry.sequenceIndex.caseInsensitiveBaseCount);
-        sequenceEntry.setTotalBasesWithoutNBases(adjustedBases);
+        sequenceEntry = new SequenceEntry(
+                adjustedBases,
+                entry.sequenceIndex.totalBases(),
+                entry.sequenceIndex.startNBasesCount,
+                entry.sequenceIndex.endNBasesCount,
+                entry.sequenceIndex.caseInsensitiveBaseCount);
 
         sequenceIndex = entry.sequenceIndex;
     }

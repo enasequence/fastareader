@@ -167,7 +167,7 @@ public class SequenceIndexBuilderTest {
         String next = ">H2\n";
 
         String fasta = header + l1 + l2 + next;
-        Path p = writeAscii(tempDir, "idx2.fa", fasta);
+        Path p = writeAscii(tempDir, "idx3.fa", fasta);
 
         try (FileChannel ch = openRead(p)) {
             long seqStart = header.getBytes(StandardCharsets.US_ASCII).length;
@@ -202,7 +202,7 @@ public class SequenceIndexBuilderTest {
         String next = ">K\n";
 
         String fasta = header + l1 + l2 + blanks + l3 + next;
-        Path p = writeAscii(tempDir, "idx3.fa", fasta);
+        Path p = writeAscii(tempDir, "idx4.fa", fasta);
 
         try (FileChannel ch = openRead(p)) {
             long seqStart = header.getBytes(StandardCharsets.US_ASCII).length;
@@ -242,7 +242,7 @@ public class SequenceIndexBuilderTest {
         String l3 = "GGGn\n"; // trailing n = 1
 
         String sequence = l1 + l2 + blanks + l3;
-        Path p = writeAscii(tempDir, "idx3.fa", sequence);
+        Path p = writeAscii(tempDir, "idx5.fa", sequence);
 
         try (FileChannel ch = openRead(p)) {
             SequenceIndexBuilder sib =
@@ -281,7 +281,7 @@ public class SequenceIndexBuilderTest {
         String l3 = "GGGn\n"; // trailing n = 1
 
         String sequence = l1 + l2 + blanks + l3;
-        Path p = writeAscii(tempDir, "idx3.fa", sequence);
+        Path p = writeAscii(tempDir, "idx6.fa", sequence);
 
         try (FileChannel ch = openRead(p)) {
             SequenceIndexBuilder sib =

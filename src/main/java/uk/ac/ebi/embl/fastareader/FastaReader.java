@@ -42,10 +42,13 @@ import uk.ac.ebi.embl.fastareader.sequenceutils.SequenceIndex;
 @Setter
 public final class FastaReader implements AutoCloseable {
 
-    private int UTF_8_CHECK_MAXIMUM_BYTES =
+    private static final int UTF_8_CHECK_MAXIMUM_BYTES =
             1024 * 1024; // check just preliminary first 1Mb to confirm encoding is likely UTF8
 
-    public List<FastaEntry> fastaEntries = new ArrayList<>();
+    /** FASTA entries, each one with a unique fastaReaderId, header line string and basic sequence information */
+    @Getter
+    @Setter
+    private List<FastaEntry> fastaEntries = new ArrayList<>();
     // Maps fastaReaderId to its corresponding SequenceIndex
     private HashMap<Long, SequenceIndex> sequenceIndexes = new HashMap<>();
     private File file;
@@ -71,11 +74,6 @@ public final class FastaReader implements AutoCloseable {
     }
 
     // ---------------------------- queries ----------------------------
-
-    /** Returns FASTA entries, each one with a unique fastaReaderId, header line string and basic sequence information */
-    public List<FastaEntry> getFastaEntry() {
-        return Collections.unmodifiableList(fastaEntries);
-    }
 
     /** Gets a specific FASTA entry with the appropriate fastaReaderId **/
     public Optional<FastaEntry> getFastaWithId(Long fastaReaderId) throws FastaFileException {
@@ -168,6 +166,7 @@ public final class FastaReader implements AutoCloseable {
         close(); // if already open, close first
         this.file = Objects.requireNonNull(fastaFile, "file");
         reader = new InternalReader(fastaFile, SequenceAlphabet.defaultNucleotideAlphabet(), FileFormat.FASTA);
+        checkIfUtf8(fastaFile);
         loadEntries();
     }
 

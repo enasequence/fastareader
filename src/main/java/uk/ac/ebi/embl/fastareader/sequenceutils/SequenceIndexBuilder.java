@@ -29,7 +29,8 @@ public final class SequenceIndexBuilder {
     private final FileChannel ch;
     private final long fileSize;
     private final SequenceAlphabet alphabet;
-    private final Optional<Byte> sequenceEndByte; // this would be '>' char turned to
+    private final Optional<Byte>
+            sequenceEndByte; // byte marking start of next entry (e.g. '>' for FASTA); empty means read to EOF
 
     public SequenceIndexBuilder(FileChannel ch, SequenceAlphabet alphabet, Optional<Byte> sequenceEndByte)
             throws IOException {
