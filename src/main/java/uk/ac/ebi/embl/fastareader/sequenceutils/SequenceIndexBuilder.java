@@ -21,7 +21,7 @@ import uk.ac.ebi.embl.fastareader.exception.SequenceReadingException;
 
 public final class SequenceIndexBuilder {
     private static final int SCAN_BUF_SIZE = 4 * 1024 * 1024; // 4 MB
-    private static final int COUNT_BUF_SIZE = 4 * 1024 * 1024; // 2 MB
+    private static final int COUNT_BUF_SIZE = 4 * 1024 * 1024; // 4 MB
 
     private static final byte LF = (byte) '\n';
     private static final byte CR = (byte) '\r';
