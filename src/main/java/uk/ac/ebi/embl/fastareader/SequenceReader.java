@@ -184,18 +184,18 @@ public class SequenceReader implements AutoCloseable {
             throw new SequenceFileException("More than one sequence entry found in file, which shouldn't happen.");
 
         var entry = readEntries.get(0);
-        long adjustedBases = entry.sequenceIndex.totalBases()
-                - entry.sequenceIndex.startNBasesCount
-                - entry.sequenceIndex.endNBasesCount;
+        long adjustedBases = entry.getSequenceIndex().totalBases()
+                - entry.getSequenceIndex().startNBasesCount
+                - entry.getSequenceIndex().endNBasesCount;
 
         sequenceEntry = new SequenceEntry(
                 adjustedBases,
-                entry.sequenceIndex.totalBases(),
-                entry.sequenceIndex.startNBasesCount,
-                entry.sequenceIndex.endNBasesCount,
-                entry.sequenceIndex.caseInsensitiveBaseCount);
+                entry.getSequenceIndex().totalBases(),
+                entry.getSequenceIndex().startNBasesCount,
+                entry.getSequenceIndex().endNBasesCount,
+                entry.getSequenceIndex().caseInsensitiveBaseCount);
 
-        sequenceIndex = entry.sequenceIndex;
+        sequenceIndex = entry.getSequenceIndex();
     }
 
     private void ensureFileReaderOpen() {

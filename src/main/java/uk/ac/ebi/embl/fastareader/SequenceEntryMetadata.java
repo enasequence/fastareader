@@ -11,14 +11,48 @@
 package uk.ac.ebi.embl.fastareader;
 
 import lombok.Getter;
-import lombok.Setter;
 import uk.ac.ebi.embl.fastareader.sequenceutils.SequenceIndex;
 
-@Getter
-@Setter
 class SequenceEntryMetadata {
-    String headerLine;
-    // information needed for accessing the file
-    Long fastaStartByte; // position of '>' in the file
-    SequenceIndex sequenceIndex; // a smart index for querying ranges in the file
+
+    /**
+     * Assumed file format based on the input
+     */
+    @Getter
+    FileFormat fileFormat;
+    /**
+     * information needed for accessing the file, if doesn't apply due to lack of header it's null
+     */
+    @Getter
+    private String headerLine;
+    /**
+     * position of '>' in the file, if doesn't apply due to file not being in fasta file format it's going to be -1L
+     */
+    @Getter
+    long fastaStartByte;
+    /**
+     * a smart index for querying ranges in the file
+     */
+    @Getter
+    SequenceIndex sequenceIndex;
+
+    /**
+     * Constructor for sequence metadata about a plain sequence
+     */
+    SequenceEntryMetadata(SequenceIndex sequenceIndex) {
+        this.fileFormat = FileFormat.PLAIN_SINGLE_SEQUENCE;
+        this.sequenceIndex = sequenceIndex;
+        this.fastaStartByte = -1;
+        this.headerLine = null;
+    }
+
+    /**
+     * Constructor for sequence metadata about a FASTA header+sequence
+     */
+    public SequenceEntryMetadata(String headerLine, long fastaStartByte, SequenceIndex sequenceIndex) {
+        this.fileFormat = FileFormat.FASTA;
+        this.headerLine = headerLine;
+        this.fastaStartByte = fastaStartByte;
+        this.sequenceIndex = sequenceIndex;
+    }
 }

@@ -227,12 +227,7 @@ class InternalReader implements AutoCloseable {
             // Move reader cursor to the sequence start position
             channel.position(sequenceStartPos);
 
-            SequenceEntryMetadata e = new SequenceEntryMetadata();
-            e.setHeaderLine(headerLine);
-            e.setFastaStartByte(headerPos);
-            e.setSequenceIndex(index);
-
-            return Optional.of(e);
+            return Optional.of(new SequenceEntryMetadata(headerLine, headerPos, index));
         } catch (IOException io) {
             long pos = safePos();
             throw new SequenceReadingException("I/O while reading FASTA at byte " + pos + ": " + io.getMessage(), io);
@@ -249,8 +244,7 @@ class InternalReader implements AutoCloseable {
             // Move reader cursor to the sequence start position
             channel.position(sequenceStartPos);
 
-            SequenceEntryMetadata e = new SequenceEntryMetadata();
-            e.setSequenceIndex(index);
+            SequenceEntryMetadata e = new SequenceEntryMetadata(index);
 
             if (e.sequenceIndex.totalBases() == 0) return Optional.empty();
             return Optional.of(e);
