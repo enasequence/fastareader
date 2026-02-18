@@ -19,10 +19,14 @@ import java.nio.file.Files;
 import java.nio.file.Path;
 import java.nio.file.StandardOpenOption;
 import java.util.List;
+import java.util.Optional;
 import org.junit.jupiter.api.Test;
 import org.junit.jupiter.api.io.TempDir;
+import uk.ac.ebi.embl.fastareader.exception.SequenceReadingException;
 
 public class SequenceIndexBuilderTest {
+
+    private static final byte GT = (byte) '>';
 
     @TempDir
     Path tempDir;
@@ -59,11 +63,10 @@ public class SequenceIndexBuilderTest {
         Path p = writeAscii(tempDir, "idx1.fa", fasta);
 
         try (FileChannel ch = openRead(p)) {
-            long fileSize = ch.size();
             long seqStartPos = header.getBytes(StandardCharsets.US_ASCII).length; // first byte after header line
 
             SequenceAlphabet alpha = SequenceAlphabet.defaultNucleotideAlphabet();
-            SequenceIndexBuilder sib = new SequenceIndexBuilder(ch, fileSize, alpha);
+            SequenceIndexBuilder sib = new SequenceIndexBuilder(ch, alpha, Optional.of(GT));
 
             long beforePos = ch.position(); // should remain unchanged
             SequenceIndex idx = sib.buildFrom(seqStartPos);
@@ -134,7 +137,7 @@ public class SequenceIndexBuilderTest {
         try (FileChannel ch = openRead(p)) {
             long seqStart = header.getBytes(StandardCharsets.US_ASCII).length;
             SequenceIndexBuilder sib =
-                    new SequenceIndexBuilder(ch, ch.size(), SequenceAlphabet.defaultNucleotideAlphabet());
+                    new SequenceIndexBuilder(ch, SequenceAlphabet.defaultNucleotideAlphabet(), Optional.of(GT));
 
             SequenceIndex idx = sib.buildFrom(seqStart);
 
@@ -164,12 +167,12 @@ public class SequenceIndexBuilderTest {
         String next = ">H2\n";
 
         String fasta = header + l1 + l2 + next;
-        Path p = writeAscii(tempDir, "idx2.fa", fasta);
+        Path p = writeAscii(tempDir, "idx3.fa", fasta);
 
         try (FileChannel ch = openRead(p)) {
             long seqStart = header.getBytes(StandardCharsets.US_ASCII).length;
             SequenceIndexBuilder sib =
-                    new SequenceIndexBuilder(ch, ch.size(), SequenceAlphabet.defaultNucleotideAlphabet());
+                    new SequenceIndexBuilder(ch, SequenceAlphabet.defaultNucleotideAlphabet(), Optional.of(GT));
 
             SequenceIndex idx = sib.buildFrom(seqStart);
 
@@ -199,12 +202,12 @@ public class SequenceIndexBuilderTest {
         String next = ">K\n";
 
         String fasta = header + l1 + l2 + blanks + l3 + next;
-        Path p = writeAscii(tempDir, "idx3.fa", fasta);
+        Path p = writeAscii(tempDir, "idx4.fa", fasta);
 
         try (FileChannel ch = openRead(p)) {
             long seqStart = header.getBytes(StandardCharsets.US_ASCII).length;
             SequenceIndexBuilder sib =
-                    new SequenceIndexBuilder(ch, ch.size(), SequenceAlphabet.defaultNucleotideAlphabet());
+                    new SequenceIndexBuilder(ch, SequenceAlphabet.defaultNucleotideAlphabet(), Optional.of(GT));
 
             long before = ch.position();
             SequenceIndex idx = sib.buildFrom(seqStart);
@@ -228,6 +231,63 @@ public class SequenceIndexBuilderTest {
 
             // Total base numbering should be contiguous: 4 + 4 + 4 = 12
             assertEquals(12, idx.totalBases());
+        }
+    }
+
+    @Test
+    void readsJustSequenceCorrectly() throws Exception {
+        String l1 = "NACG\n"; // leading N = 1
+        String l2 = "NNNN\n"; // middle line of Ns — must NOT affect start/end N counts
+        String blanks = "\n\n";
+        String l3 = "GGGn\n"; // trailing n = 1
+
+        String sequence = l1 + l2 + blanks + l3;
+        Path p = writeAscii(tempDir, "idx5.fa", sequence);
+
+        try (FileChannel ch = openRead(p)) {
+            SequenceIndexBuilder sib =
+                    new SequenceIndexBuilder(ch, SequenceAlphabet.defaultNucleotideAlphabet(), Optional.empty());
+
+            long before = ch.position();
+            SequenceIndex idx = sib.buildFrom(0);
+            long after = ch.position();
+            assertEquals(before, after, "builder must not move channel position");
+
+            // three non-empty sequence lines: l1, l2, l3
+            assertEquals(3, idx.linesView().size());
+
+            // Edge N counts: only first and last lines considered
+            assertEquals(1, idx.startNBasesCount, "only first line leading Ns");
+            assertEquals(1, idx.endNBasesCount, "only last line trailing Ns");
+            // assert total count of N bases is correctly done
+            assertEquals(6, idx.caseInsensitiveBaseCount.get('N'));
+            assertEquals(4, idx.caseInsensitiveBaseCount.get('G'));
+            assertEquals(1, idx.caseInsensitiveBaseCount.get('A'));
+            assertEquals(1, idx.caseInsensitiveBaseCount.get('C'));
+
+            // Middle line of Ns shouldn't change edge counts
+            assertEquals(idx.linesView().get(1).lengthBases(), 4);
+
+            // Total base numbering should be contiguous: 4 + 4 + 4 = 12
+            assertEquals(12, idx.totalBases());
+        }
+    }
+
+    @Test
+    void doesNotTolerateBreaksWhenReadingContinuousSequence() throws Exception {
+        String l1 = "NACG\n"; // leading N = 1
+        String l2 = "N>NNN\n"; // middle line of Ns — must NOT affect start/end N counts
+        String blanks = "\n\n";
+        String l3 = "GGGn\n"; // trailing n = 1
+
+        String sequence = l1 + l2 + blanks + l3;
+        Path p = writeAscii(tempDir, "idx6.fa", sequence);
+
+        try (FileChannel ch = openRead(p)) {
+            SequenceIndexBuilder sib =
+                    new SequenceIndexBuilder(ch, SequenceAlphabet.defaultNucleotideAlphabet(), Optional.empty());
+
+            assertThrows(SequenceReadingException.class, () -> sib.buildFrom(0));
         }
     }
 }

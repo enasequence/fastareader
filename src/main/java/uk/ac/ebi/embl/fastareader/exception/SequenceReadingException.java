@@ -10,18 +10,19 @@
  */
 package uk.ac.ebi.embl.fastareader.exception;
 
-public class FastaFileException extends Exception {
-    public FastaFileException() {}
+public class SequenceReadingException extends Exception {
 
-    public FastaFileException(String message) {
+    public SequenceReadingException() {}
+
+    public SequenceReadingException(String message) {
         super(message);
     }
 
-    public FastaFileException(Throwable cause) {
+    public SequenceReadingException(Throwable cause) {
         super(cause);
     }
 
-    public FastaFileException(String message, Throwable cause) {
+    public SequenceReadingException(String message, Throwable cause) {
         super(message, cause);
     }
 }

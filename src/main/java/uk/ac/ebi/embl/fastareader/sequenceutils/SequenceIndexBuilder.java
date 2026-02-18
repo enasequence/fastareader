@@ -16,28 +16,32 @@ import java.nio.channels.FileChannel;
 import java.nio.charset.StandardCharsets;
 import java.util.ArrayList;
 import java.util.List;
-import uk.ac.ebi.embl.fastareader.exception.FastaFileException;
+import java.util.Optional;
+import uk.ac.ebi.embl.fastareader.exception.SequenceReadingException;
 
 public final class SequenceIndexBuilder {
     private static final int SCAN_BUF_SIZE = 4 * 1024 * 1024; // 4 MB
-    private static final int COUNT_BUF_SIZE = 4 * 1024 * 1024; // 2 MB
+    private static final int COUNT_BUF_SIZE = 4 * 1024 * 1024; // 4 MB
 
-    private static final byte GT = (byte) '>';
     private static final byte LF = (byte) '\n';
     private static final byte CR = (byte) '\r';
 
     private final FileChannel ch;
     private final long fileSize;
     private final SequenceAlphabet alphabet;
+    private final Optional<Byte>
+            sequenceEndByte; // byte marking start of next entry (e.g. '>' for FASTA); empty means read to EOF
 
-    public SequenceIndexBuilder(FileChannel ch, long fileSize, SequenceAlphabet alphabet) {
+    public SequenceIndexBuilder(FileChannel ch, SequenceAlphabet alphabet, Optional<Byte> sequenceEndByte)
+            throws IOException {
         this.ch = ch;
-        this.fileSize = fileSize;
+        this.fileSize = ch.size();
         this.alphabet = alphabet;
+        this.sequenceEndByte = sequenceEndByte;
     }
 
     /** Build a SequenceIndex starting at 'startPos' (first byte after header line). */
-    public SequenceIndex buildFrom(long startPos) throws IOException, FastaFileException {
+    public SequenceIndex buildFrom(long startPos) throws IOException, SequenceReadingException {
         ScanState s = new ScanState(startPos, fileSize);
         ByteBuffer buf = newScanBuffer();
 
@@ -90,9 +94,9 @@ public final class SequenceIndexBuilder {
 
         final ArrayList<LineEntry> lines = new ArrayList<>(256);
 
-        ScanState(long startPos, long fileSize) {
+        ScanState(long startPos, long charAtEndIndex) {
             this.pos = startPos;
-            this.nextHdr = fileSize;
+            this.nextHdr = charAtEndIndex;
         }
     }
 
@@ -108,7 +112,7 @@ public final class SequenceIndexBuilder {
     }
 
     /** Returns true if we hit the next header and should stop scanning this entry. */
-    private boolean processBuffer(ByteBuffer buf, ScanState s) throws IOException, FastaFileException {
+    private boolean processBuffer(ByteBuffer buf, ScanState s) throws IOException, SequenceReadingException {
         buf.flip();
         while (buf.hasRemaining()) {
             int idx = buf.position();
@@ -127,7 +131,7 @@ public final class SequenceIndexBuilder {
                 s.charCounts[ci]++;
                 observeBase(abs, s);
             } else {
-                throw new FastaFileException(String.format(
+                throw new SequenceReadingException(String.format(
                         "Illegal character '%s' (byte value: %d) at absolute file position %d. "
                                 + "This character is not allowed by the current FASTA alphabet. "
                                 + "Expected only characters: %s",
@@ -138,7 +142,8 @@ public final class SequenceIndexBuilder {
     }
 
     private boolean isHeaderStart(byte b, long abs) throws IOException {
-        return b == GT && isLineStart(abs);
+        if (sequenceEndByte.isEmpty()) return false;
+        return b == sequenceEndByte.get() && isLineStart(abs);
     }
 
     /** header must be at file start or immediately after LF */

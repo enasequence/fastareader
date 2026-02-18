@@ -15,8 +15,8 @@ import java.net.URL;
 import java.nio.file.*;
 import java.util.Objects;
 
-public final class FastaTestResources {
-    private FastaTestResources() {}
+public final class TestResources {
+    private TestResources() {}
 
     /** Returns a Path to a resource like ("fasta", "example.txt"). */
     public static Path path(String dir, String fileName) {

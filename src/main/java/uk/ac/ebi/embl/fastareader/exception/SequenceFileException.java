@@ -8,17 +8,20 @@
  * CONDITIONS OF ANY KIND, either express or implied. See the License for the
  * specific language governing permissions and limitations under the License.
  */
-package uk.ac.ebi.embl.fastareader;
+package uk.ac.ebi.embl.fastareader.exception;
 
-import lombok.Getter;
-import lombok.Setter;
-import uk.ac.ebi.embl.fastareader.sequenceutils.SequenceIndex;
+public class SequenceFileException extends Exception {
+    public SequenceFileException() {}
 
-@Getter
-@Setter
-class FastaEntryMetadata {
-    String headerLine;
-    // information needed for accessing the file
-    long fastaStartByte; // position of '>' in the file
-    SequenceIndex sequenceIndex; // a smart index for querying ranges in the file
+    public SequenceFileException(String message) {
+        super(message);
+    }
+
+    public SequenceFileException(Throwable cause) {
+        super(cause);
+    }
+
+    public SequenceFileException(String message, Throwable cause) {
+        super(message, cause);
+    }
 }

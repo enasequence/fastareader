@@ -18,27 +18,41 @@ import lombok.Getter;
 import lombok.Setter;
 import uk.ac.ebi.embl.fastareader.encoding.Utf8Detector;
 import uk.ac.ebi.embl.fastareader.exception.FastaFileException;
+import uk.ac.ebi.embl.fastareader.exception.SequenceReadingException;
 import uk.ac.ebi.embl.fastareader.sequenceutils.ByteSpan;
 import uk.ac.ebi.embl.fastareader.sequenceutils.SequenceAlphabet;
 import uk.ac.ebi.embl.fastareader.sequenceutils.SequenceIndex;
 
 /**
- * Owns a SequentialFastaEntryReader, keeps all entries + indexes in memory, supports ID renames,
- * and serves base-range slices by mapping (N..M bases) -> byte span via the cached SequenceIndex,
- * then asking the reader to stream bytes while skipping newlines.
+ * Reads generic FASTA formats with sequences efficiently.
+ *
+ * <p>This reader provides fast, buffered access to a file that contains header lines,
+ * and keeps minimum metadata in memory (headers, base counts), while allowing quick random access to slices
+ * or streaming of the sequence. Especially suitable for large sequences, or grabbing headers for further processing. </p>
+ *
+ * <p>One FASTA entry is considered to be one header with an accompanying sequence, in generic format with the only
+ * prerequisite being the greater than '>' character at the start of the header and the next-line '\n' character at
+ * the end of the header line. The base alphabet of the sequence is modifiable, as well as the tolerated non-base characters (commonly \n, \r) in the sequence
+ * which will be ignored when enumerating bases or streaming the sequence. </p>
+ *
+ * <p> One file can contain as many FASTA entries as desired while keeping reading and retrieval fast, as
+ * long as they are UTF-8 encoded and the bases are within the allowed pre-set alphabet. The entries are enumerated from 0 onwards in order of appearance in the file. </p>
  */
 @Getter
 @Setter
 public final class FastaReader implements AutoCloseable {
 
-    private int UTF_8_CHECK_MAXIMUM_BYTES =
+    private static final int UTF_8_CHECK_MAXIMUM_BYTES =
             1024 * 1024; // check just preliminary first 1Mb to confirm encoding is likely UTF8
 
-    public List<FastaEntry> fastaEntries = new ArrayList<>();
+    /** FASTA entries, each one with a unique fastaReaderId, header line string and basic sequence information */
+    @Getter
+    private List<FastaEntry> fastaEntries = new ArrayList<>();
     // Maps fastaReaderId to its corresponding SequenceIndex
     private HashMap<Long, SequenceIndex> sequenceIndexes = new HashMap<>();
     private File file;
-    private SequentialFastaFileReader reader;
+    private InternalReader reader;
+    private SequenceAlphabet alphabet;
 
     /** Initializes FASTA reader, skimming through the whole file right away. */
     public FastaReader(File fastaFile) throws FastaFileException, IOException {
@@ -51,20 +65,16 @@ public final class FastaReader implements AutoCloseable {
      * */
     public FastaReader(File fastaFile, SequenceAlphabet alphabet) throws FastaFileException, IOException {
         this.file = Objects.requireNonNull(fastaFile, "fastaFile");
-        this.reader = new SequentialFastaFileReader(fastaFile, alphabet);
         this.sequenceIndexes = new HashMap<>();
         this.fastaEntries = new ArrayList<>();
+        this.alphabet = alphabet;
+        this.reader = new InternalReader(fastaFile, this.alphabet, FileFormat.FASTA);
 
         checkIfUtf8(fastaFile);
         loadEntries();
     }
 
     // ---------------------------- queries ----------------------------
-
-    /** Returns FASTA entries, each one with a unique fastaReaderId, header line string and basic sequence information */
-    public List<FastaEntry> getFastaEntry() {
-        return Collections.unmodifiableList(fastaEntries);
-    }
 
     /** Gets a specific FASTA entry with the appropriate fastaReaderId **/
     public Optional<FastaEntry> getFastaWithId(Long fastaReaderId) throws FastaFileException {
@@ -91,18 +101,7 @@ public final class FastaReader implements AutoCloseable {
             throw new FastaFileException("No sequence index found for fasta reader Id " + fastaReaderId);
         }
 
-        final ByteSpan span;
-        switch (option) {
-            case WHOLE_SEQUENCE:
-                span = index.byteSpanForBaseRangeIncludingEdgeNBases(fromBase, toBase);
-                break;
-            case WITHOUT_EDGE_N_BASES:
-                span = index.byteSpanForBaseRange(fromBase, toBase);
-                break;
-            default:
-                throw new IllegalStateException("Unknown option " + option);
-        }
-
+        final ByteSpan span = getByteSpan(fromBase, toBase, option, index);
         try {
             return reader.getSequenceSliceString(span);
         } catch (IOException ioe) {
@@ -136,18 +135,7 @@ public final class FastaReader implements AutoCloseable {
             throw new FastaFileException("No sequence index found for fasta reader Id " + fastaReaderId);
         }
 
-        ByteSpan span;
-        switch (option) {
-            case WHOLE_SEQUENCE:
-                span = index.byteSpanForBaseRangeIncludingEdgeNBases(fromBase, toBase);
-                break;
-            case WITHOUT_EDGE_N_BASES:
-                span = index.byteSpanForBaseRange(fromBase, toBase);
-                break;
-            default:
-                throw new IllegalStateException("Unknown option " + option);
-        }
-
+        ByteSpan span = getByteSpan(fromBase, toBase, option, index);
         return reader.getSequenceSliceReader(span);
     }
 
@@ -156,7 +144,8 @@ public final class FastaReader implements AutoCloseable {
     public void openNewFile(File fastaFile) throws FastaFileException, IOException {
         close(); // if already open, close first
         this.file = Objects.requireNonNull(fastaFile, "file");
-        reader = new SequentialFastaFileReader(fastaFile);
+        reader = new InternalReader(fastaFile, this.alphabet, FileFormat.FASTA);
+        checkIfUtf8(fastaFile);
         loadEntries();
     }
 
@@ -187,7 +176,12 @@ public final class FastaReader implements AutoCloseable {
      * ownership of the underlying reader.
      */
     private void loadEntries() throws IOException, FastaFileException {
-        List<FastaEntryMetadata> readEntries = reader.readAll();
+        List<SequenceEntryMetadata> readEntries;
+        try {
+            readEntries = reader.readFile();
+        } catch (SequenceReadingException e) {
+            throw new FastaFileException(e);
+        }
 
         long currentFastaId = 0;
         for (var entry : readEntries) {
@@ -215,5 +209,20 @@ public final class FastaReader implements AutoCloseable {
     private void ensureFileReaderOpen() {
         if (reader == null || !reader.readingFile())
             throw new IllegalStateException("Service is not open. Call open() first.");
+    }
+
+    private static ByteSpan getByteSpan(long fromBase, long toBase, SequenceRangeOption option, SequenceIndex index) {
+        ByteSpan span;
+        switch (option) {
+            case WHOLE_SEQUENCE:
+                span = index.byteSpanForBaseRangeIncludingEdgeNBases(fromBase, toBase);
+                break;
+            case WITHOUT_EDGE_N_BASES:
+                span = index.byteSpanForBaseRange(fromBase, toBase);
+                break;
+            default:
+                throw new IllegalStateException("Unknown option " + option);
+        }
+        return span;
     }
 }
