@@ -80,18 +80,7 @@ public class SequenceReader implements AutoCloseable {
     public String getSequenceSliceString(long fromBase, long toBase, SequenceRangeOption option)
             throws SequenceFileException {
         ensureFileReaderOpen();
-
-        final ByteSpan span;
-        switch (option) {
-            case WHOLE_SEQUENCE:
-                span = sequenceIndex.byteSpanForBaseRangeIncludingEdgeNBases(fromBase, toBase);
-                break;
-            case WITHOUT_EDGE_N_BASES:
-                span = sequenceIndex.byteSpanForBaseRange(fromBase, toBase);
-                break;
-            default:
-                throw new IllegalStateException("Unknown option " + option);
-        }
+        final ByteSpan span = getByteSpan(fromBase, toBase, option);
 
         try {
             return reader.getSequenceSliceString(span);
@@ -119,19 +108,7 @@ public class SequenceReader implements AutoCloseable {
      */
     public Reader getSequenceSliceReader(long fromBase, long toBase, SequenceRangeOption option) {
         ensureFileReaderOpen();
-
-        ByteSpan span;
-        switch (option) {
-            case WHOLE_SEQUENCE:
-                span = sequenceIndex.byteSpanForBaseRangeIncludingEdgeNBases(fromBase, toBase);
-                break;
-            case WITHOUT_EDGE_N_BASES:
-                span = sequenceIndex.byteSpanForBaseRange(fromBase, toBase);
-                break;
-            default:
-                throw new IllegalStateException("Unknown option " + option);
-        }
-
+        ByteSpan span = getByteSpan(fromBase, toBase, option);
         return reader.getSequenceSliceReader(span);
     }
 
@@ -201,5 +178,20 @@ public class SequenceReader implements AutoCloseable {
     private void ensureFileReaderOpen() {
         if (reader == null || !reader.readingFile())
             throw new IllegalStateException("Service is not open. Call open() first.");
+    }
+
+    private ByteSpan getByteSpan(long fromBase, long toBase, SequenceRangeOption option) {
+        final ByteSpan span;
+        switch (option) {
+            case WHOLE_SEQUENCE:
+                span = sequenceIndex.byteSpanForBaseRangeIncludingEdgeNBases(fromBase, toBase);
+                break;
+            case WITHOUT_EDGE_N_BASES:
+                span = sequenceIndex.byteSpanForBaseRange(fromBase, toBase);
+                break;
+            default:
+                throw new IllegalStateException("Unknown option " + option);
+        }
+        return span;
     }
 }

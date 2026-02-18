@@ -101,18 +101,7 @@ public final class FastaReader implements AutoCloseable {
             throw new FastaFileException("No sequence index found for fasta reader Id " + fastaReaderId);
         }
 
-        final ByteSpan span;
-        switch (option) {
-            case WHOLE_SEQUENCE:
-                span = index.byteSpanForBaseRangeIncludingEdgeNBases(fromBase, toBase);
-                break;
-            case WITHOUT_EDGE_N_BASES:
-                span = index.byteSpanForBaseRange(fromBase, toBase);
-                break;
-            default:
-                throw new IllegalStateException("Unknown option " + option);
-        }
-
+        final ByteSpan span = getByteSpan(fromBase, toBase, option, index);
         try {
             return reader.getSequenceSliceString(span);
         } catch (IOException ioe) {
@@ -146,18 +135,7 @@ public final class FastaReader implements AutoCloseable {
             throw new FastaFileException("No sequence index found for fasta reader Id " + fastaReaderId);
         }
 
-        ByteSpan span;
-        switch (option) {
-            case WHOLE_SEQUENCE:
-                span = index.byteSpanForBaseRangeIncludingEdgeNBases(fromBase, toBase);
-                break;
-            case WITHOUT_EDGE_N_BASES:
-                span = index.byteSpanForBaseRange(fromBase, toBase);
-                break;
-            default:
-                throw new IllegalStateException("Unknown option " + option);
-        }
-
+        ByteSpan span = getByteSpan(fromBase, toBase, option, index);
         return reader.getSequenceSliceReader(span);
     }
 
@@ -231,5 +209,20 @@ public final class FastaReader implements AutoCloseable {
     private void ensureFileReaderOpen() {
         if (reader == null || !reader.readingFile())
             throw new IllegalStateException("Service is not open. Call open() first.");
+    }
+
+    private static ByteSpan getByteSpan(long fromBase, long toBase, SequenceRangeOption option, SequenceIndex index) {
+        ByteSpan span;
+        switch (option) {
+            case WHOLE_SEQUENCE:
+                span = index.byteSpanForBaseRangeIncludingEdgeNBases(fromBase, toBase);
+                break;
+            case WITHOUT_EDGE_N_BASES:
+                span = index.byteSpanForBaseRange(fromBase, toBase);
+                break;
+            default:
+                throw new IllegalStateException("Unknown option " + option);
+        }
+        return span;
     }
 }
