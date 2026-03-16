@@ -19,7 +19,7 @@ class SequenceEntryMetadata {
      * Assumed file format based on the input
      */
     @Getter
-    FileFormat fileFormat;
+    SequenceFileFormat fileFormat;
     /**
      * information needed for accessing the file, if doesn't apply due to lack of header it's null
      */
@@ -40,7 +40,7 @@ class SequenceEntryMetadata {
      * Constructor for sequence metadata about a plain sequence
      */
     SequenceEntryMetadata(SequenceIndex sequenceIndex) {
-        this.fileFormat = FileFormat.PLAIN_SINGLE_SEQUENCE;
+        this.fileFormat = SequenceFileFormat.PLAIN_SEQUENCE;
         this.sequenceIndex = sequenceIndex;
         this.fastaStartByte = -1;
         this.headerLine = null;
@@ -50,7 +50,7 @@ class SequenceEntryMetadata {
      * Constructor for sequence metadata about a FASTA header+sequence
      */
     public SequenceEntryMetadata(String headerLine, long fastaStartByte, SequenceIndex sequenceIndex) {
-        this.fileFormat = FileFormat.FASTA;
+        this.fileFormat = SequenceFileFormat.FASTA;
         this.headerLine = headerLine;
         this.fastaStartByte = fastaStartByte;
         this.sequenceIndex = sequenceIndex;
