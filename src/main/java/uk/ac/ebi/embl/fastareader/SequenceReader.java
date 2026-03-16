@@ -10,112 +10,200 @@
  */
 package uk.ac.ebi.embl.fastareader;
 
+import java.io.File;
+import java.io.IOException;
 import java.io.Reader;
-import java.util.List;
-import java.util.Optional;
+import java.util.*;
+import lombok.Getter;
+import uk.ac.ebi.embl.fastareader.encoding.Utf8Detector;
+import uk.ac.ebi.embl.fastareader.exception.SequenceFileException;
+import uk.ac.ebi.embl.fastareader.exception.SequenceReadingException;
+import uk.ac.ebi.embl.fastareader.sequenceutils.ByteSpan;
+import uk.ac.ebi.embl.fastareader.sequenceutils.SequenceAlphabet;
 import uk.ac.ebi.embl.fastareader.sequenceutils.SequenceIndex;
 
 /**
- * Unified read-only abstraction over submission sequence inputs.
+ * Reads plain-text biological sequence files efficiently.
  *
- * <p>Supports two submission types:
- * <ul>
- *   <li>{@link SequenceFileFormat#FASTA}: multi-entry FASTA file </li>
- *   <li>{@link SequenceFileFormat#PLAIN_SEQUENCE}: single-sequence file </li>
- * </ul>
+ * <p>This reader provides fast, buffered access to a file that contains only sequence characters
+ * (e.g. A/C/G/T/N/etc), optionally skipping non-sequence characters such as newlines and carriage returns.
+ * The alphabet of allowed bases and skippable allowed characters can be modified with input parameters.
+ * Suitable for high-throughput parsing and random-access workflows. </p>
  *
+ * <p>Intended for UTF-8 encoded "sequence-only" inputs (no FASTA headers, no quality scores).</p>
  */
-public interface SequenceReader extends AutoCloseable {
+public class SequenceReader implements AutoCloseable {
+
+    private static final SequenceFileFormat FILE_FORMAT = SequenceFileFormat.PLAIN_SEQUENCE;
+
+    private static final int UTF_8_CHECK_MAXIMUM_BYTES =
+            1024 * 1024; // check just preliminary first 1Mb to confirm encoding is likely UTF8
+
+    private File file;
+    private InternalReader reader;
+    private SequenceAlphabet alphabet;
+
+    /** Returns Sequence entry data */
+    @Getter
+    private SequenceStats stats;
+
+    @Getter
+    private SequenceIndex sequenceIndex;
+
+    /** Initializes Sequence reader, skimming through the whole file right away. */
+    public SequenceReader(File sequenceFile) throws SequenceFileException, IOException {
+        this(sequenceFile, SequenceAlphabet.defaultNucleotideAlphabet());
+    }
 
     /**
-     * Returns the type of input backing this reader.
-     */
-    SequenceFileFormat getSequenceFileFormat();
+     * Initializes Sequence reader, skimming through the whole file right away.
+     * Adds the option to define your own desired SequenceAlphabet and a list of tolerable characters in the sequence (usually eg. \n, \r)
+     * */
+    public SequenceReader(File sequenceFile, SequenceAlphabet alphabet) throws SequenceFileException, IOException {
+        this.file = Objects.requireNonNull(sequenceFile, "sequenceFile");
+        checkIfUtf8(file);
+
+        resetData();
+        this.alphabet = alphabet;
+        this.reader = new InternalReader(sequenceFile, this.alphabet, FILE_FORMAT);
+
+        loadSequence();
+    }
+
+    // ---------------------------- queries ----------------------------
+
+    /** Return a sequence slice as a String (no EOLs) for [fromBase..toBase] inclusive. */
+    public String getSequenceSliceString(long fromBase, long toBase) throws SequenceFileException {
+        return getSequenceSliceString(fromBase, toBase, SequenceRangeOption.WHOLE_SEQUENCE);
+    }
 
     /**
-     * Returns record ids in a stable, deterministic order.
+     *  Return a sequence slice as a String (no EOLs) for [fromBase..toBase] inclusive.
      *
-     * <p>This order must match the order in the underlying file and must remain stable for the lifetime of the reader.
-     *
-     * <p>For plain sequence:
-     * <ul>
-     *   <li>returns a single-element list containing the accession id for both id types (or throws for SUBMITTERID,
-     *       depending on your chosen semantics).</li>
-     * </ul>
-     */
-    List<Long> getOrderedIds();
+     * You can choose whether to read the whole sequence or the interval not including edge N's using the last parameter.
+     * */
+    public String getSequenceSliceString(long fromBase, long toBase, SequenceRangeOption option)
+            throws SequenceFileException {
+        ensureFileReaderOpen();
+        final ByteSpan span = getByteSpan(fromBase, toBase, option);
+
+        try {
+            return reader.getSequenceSliceString(span);
+        } catch (IOException ioe) {
+            throw new SequenceFileException(
+                    "I/O while reading slice sequence bytes " + span.start + ".." + (span.endEx - 1), ioe);
+        }
+    }
 
     /**
-     * Returns optional FASTA header metadata for the record.
-     *
-     * <p>FASTA:
-     * <ul>
-     *   <li>Typically present and parsed from the header line.</li>
-     *   <li>Missing id should return {@link Optional#empty()} or throw depending on implementation contract.</li>
-     * </ul>
-     *
-     * <p>Plain sequence:
-     * <ul>
-     *   <li>May be absent because header metadata is not embedded in the sequence file.</li>
-     *   <li>If provided externally, this returns it; otherwise {@link Optional#empty()}.</li>
-     * </ul>
-     *
-     * <p><b>Important:</b> The returned Optional itself should never be null.
+     * Return a sequence slice for reader [fromBase..toBase] (1-based, inclusive).
+     * Uses the cached index to translate bases -> bytes, then asks the reader to stream
+     * ASCII bytes while skipping '\n' and '\r' on the fly.
      */
-    Optional<String> getHeaderline(long id);
+    public Reader getSequenceSliceReader(long fromBase, long toBase) {
+        return getSequenceSliceReader(fromBase, toBase, SequenceRangeOption.WHOLE_SEQUENCE);
+    }
 
     /**
-     * Returns normalized sequence statistics for the record (lengths, edge Ns, base counts).
+     * Return a sequence slice for reader [fromBase..toBase] (1-based, inclusive).
+     * Uses the cached index to translate bases -> bytes, then asks the reader to stream
+     * ASCII bytes while skipping non-base tolerated characters (by default \n, \r) on the fly.
      *
-     * @throws IllegalArgumentException if the id does not exist or cannot be resolved
+     * You can choose whether to read the whole sequence or the interval not including edge N's using the last parameter.
      */
-    SequenceStats getStats(long id);
+    public Reader getSequenceSliceReader(long fromBase, long toBase, SequenceRangeOption option) {
+        ensureFileReaderOpen();
+        ByteSpan span = getByteSpan(fromBase, toBase, option);
+        return reader.getSequenceSliceReader(span);
+    }
+
+    // ---------------------------- interactions with the reader ----------------------------
+
+    public SequenceFileFormat getSequenceFileFormat() {
+        return FILE_FORMAT;
+    }
+
+    public void openNewFile(File sequenceFile) throws SequenceFileException, IOException {
+        close(); // if already open, close first
+        this.file = Objects.requireNonNull(sequenceFile, "file");
+        reader = new InternalReader(sequenceFile, this.alphabet, FILE_FORMAT);
+        checkIfUtf8(sequenceFile);
+        loadSequence();
+    }
+
+    /** Close the reader. Safe to call multiple times. */
+    @Override
+    public void close() throws IOException {
+        resetData();
+        if (reader != null) {
+            reader.close();
+            reader = null;
+        }
+    }
+
+    // ----------------------------- helper methods for actually loading the plain sequence ------------------
+
+    private void checkIfUtf8(File file) throws IOException, SequenceFileException {
+        if (!Utf8Detector.isProbablyUtf8(file.toPath(), UTF_8_CHECK_MAXIMUM_BYTES)) {
+            throw new SequenceFileException("File is not a UTF-8 compliant file, and as such cannot be processed");
+        }
+    }
 
     /**
-     * Returns a substring slice of the sequence as a String.
+     * Performs a one-time scan of the sequence file to build in-memory sequence index.
+     * The cached index is later used to translate base ranges into byte spans for efficient random-access reads.
      *
-     * <p>{@link SequenceRangeOption} controls whether edge N bases are included or excluded when interpreting the range.
-     * @param fromBase start base (starts from 1)
-     * @param toBase end base (end base should be smaller than total length of the sequence)
-     *
-     * @throws Exception format-specific exceptions on I/O, invalid ranges, or id resolution failures
+     * This method is called once during construction and requires exclusive
+     * ownership of the underlying reader.
      */
-    String getSequenceSlice(long id, long fromBase, long toBase, SequenceRangeOption option) throws Exception;
+    private void loadSequence() throws IOException, SequenceFileException {
+        List<SequenceEntryMetadata> readEntries;
+        try {
+            readEntries = reader.readFile();
+        } catch (SequenceReadingException e) {
+            throw new SequenceFileException(e);
+        }
 
-    /**
-     * Returns a substring slice of the WHOLE sequence as a String.
-     *
-     * @param fromBase start base (starts from 1)
-     * @param toBase end base (end base should be smaller than total length of the sequence)
-     *
-     * @throws Exception format-specific exceptions on I/O, invalid ranges, or id resolution failures
-     */
-    String getSequenceSlice(long id, long fromBase, long toBase) throws Exception;
+        if (readEntries.isEmpty()) throw new SequenceFileException("No sequence entry found in the file.");
+        if (readEntries.size() > 1)
+            throw new SequenceFileException("More than one sequence entry found in file, which shouldn't happen.");
 
-    /**
-     * Returns a streaming {@link Reader} over a slice of the sequence.
-     *
-     * <p>Useful for large slices to avoid allocating large Strings.
-     * The returned reader must be closed by the caller.
-     *
-     * @throws Exception format-specific exceptions on I/O, invalid ranges, or id resolution failures
-     */
-    Reader getSequenceSliceReader(long id, long fromBase, long toBase, SequenceRangeOption option) throws Exception;
+        var entry = readEntries.get(0);
 
-    /**
-     * Returns a streaming {@link Reader} over a slice of the WHOLW sequence.
-     *
-     * <p>Useful for large slices to avoid allocating large Strings.
-     * The returned reader must be closed by the caller.
-     *
-     * @throws Exception format-specific exceptions on I/O, invalid ranges, or id resolution failures
-     */
-    Reader getSequenceSliceReader(long id, long fromBase, long toBase) throws Exception;
+        long adjustedBases = entry.getSequenceIndex().totalBases()
+                - entry.getSequenceIndex().startNBasesCount
+                - entry.getSequenceIndex().endNBasesCount;
+        stats = new SequenceStats(
+                entry.getSequenceIndex().totalBases(),
+                adjustedBases,
+                entry.getSequenceIndex().startNBasesCount,
+                entry.getSequenceIndex().endNBasesCount,
+                entry.getSequenceIndex().caseInsensitiveBaseCount);
+        sequenceIndex = entry.getSequenceIndex();
+    }
 
-    /**
-     * Gets the sequence index of the sequence entry with the associated Id. Useful for re-reading the file.
-     *
-     * @throws Exception if the specific index read is not present
-     */
-    SequenceIndex getSequenceIndex(long id);
+    private void resetData() {
+        this.sequenceIndex = null;
+        this.stats = null;
+    }
+
+    private void ensureFileReaderOpen() {
+        if (reader == null || !reader.readingFile())
+            throw new IllegalStateException("Service is not open. Call open() first.");
+    }
+
+    private ByteSpan getByteSpan(long fromBase, long toBase, SequenceRangeOption option) {
+        final ByteSpan span;
+        switch (option) {
+            case WHOLE_SEQUENCE:
+                span = sequenceIndex.byteSpanForBaseRangeIncludingEdgeNBases(fromBase, toBase);
+                break;
+            case WITHOUT_EDGE_N_BASES:
+                span = sequenceIndex.byteSpanForBaseRange(fromBase, toBase);
+                break;
+            default:
+                throw new IllegalStateException("Unknown option " + option);
+        }
+        return span;
+    }
 }

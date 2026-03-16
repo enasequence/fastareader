@@ -16,6 +16,7 @@ import java.io.Reader;
 import java.util.*;
 import lombok.Getter;
 import lombok.Setter;
+import uk.ac.ebi.embl.fastareader.api.SequenceFormatReader;
 import uk.ac.ebi.embl.fastareader.encoding.Utf8Detector;
 import uk.ac.ebi.embl.fastareader.exception.FastaFileException;
 import uk.ac.ebi.embl.fastareader.exception.SequenceReadingException;
@@ -40,7 +41,7 @@ import uk.ac.ebi.embl.fastareader.sequenceutils.SequenceIndex;
  */
 @Getter
 @Setter
-public final class FastaReader implements AutoCloseable, SequenceReader {
+public final class FastaReader implements AutoCloseable, SequenceFormatReader {
 
     private static final SequenceFileFormat FILE_FORMAT = SequenceFileFormat.FASTA;
 

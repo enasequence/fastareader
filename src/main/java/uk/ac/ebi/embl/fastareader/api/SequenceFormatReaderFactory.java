@@ -1,0 +1,97 @@
+/*
+ * Copyright 2026 EMBL - European Bioinformatics Institute
+ * Licensed under the Apache License, Version 2.0 (the "License"); you may not use this
+ * file except in compliance with the License. You may obtain a copy of the License at
+ * http://www.apache.org/licenses/LICENSE-2.0
+ * Unless required by applicable law or agreed to in writing, software distributed under the
+ * License is distributed on an "AS IS" BASIS, WITHOUT WARRANTIES OR
+ * CONDITIONS OF ANY KIND, either express or implied. See the License for the
+ * specific language governing permissions and limitations under the License.
+ */
+package uk.ac.ebi.embl.fastareader.api;
+
+import java.io.File;
+import uk.ac.ebi.embl.fastareader.FastaReader;
+import uk.ac.ebi.embl.fastareader.SequenceReader;
+import uk.ac.ebi.embl.fastareader.sequenceutils.SequenceAlphabet;
+
+/**
+ * Factory methods for opening {@link SequenceReader} instances.
+ *
+ * <p>This is the single entry point for reading sequence submissions in a unified way,
+ * regardless of whether the submission is a multi-record FASTA file or a single-record
+ * plain sequence file.</p>
+ *
+ * <h2>Supported submission types</h2>
+ * <ul>
+ *   <li><b>FASTA</b>: a FASTA file containing one or more entries. Each entry is addressable by
+ *       its submission ID (parsed from the JSON header). Accession IDs may be supplied later via
+ *       {@link SequenceReader#setAccessionIds(java.util.List)}.</li>
+ *   <li><b>PLAIN_SEQUENCE</b>: a single sequence file containing exactly one sequence record.
+ *       The record is addressed by the provided accession ID. A {@link FastaHeader} may be provided
+ *       separately (optional).</li>
+ * </ul>
+ *
+ * <h2>Resource management</h2>
+ * <p>Readers returned by this factory hold file handles. Always close them when done.</p>
+ *
+ * <pre>{@code
+ * try (SequenceReader reader = SequenceReaderFactory.openFasta(fastaFile)) {
+ *     // use reader...
+ * }
+ * }</pre>
+ */
+public class SequenceFormatReaderFactory {
+
+    private SequenceFormatReaderFactory() {
+        // Utility class; do not instantiate.
+    }
+
+    /**
+     * Opens a reader for a FASTA submission.
+     *
+     * <p>The FASTA file may contain multiple sequence records. Each record is expected to include
+     * a headerline from which the metadata can be parsed. Uses default alphabet which is defined in {@link SequenceAlphabet}.</p>
+     *
+     * @param fastaFile FASTA file to open (must not be {@code null})
+     * @return a {@link SequenceFormatReader} backed by the FASTA file
+     * @throws Exception if the file cannot be opened, parsed, or validated (e.g. invalid FASTA,
+     *                   invalid headers, duplicate IDs, I/O errors)
+     */
+    public static SequenceFormatReader readFasta(File fastaFile) throws Exception {
+        return new FastaReader(fastaFile, SequenceAlphabet.defaultNucleotideAlphabet());
+    }
+
+    /**
+     * Opens a reader for a FASTA submission.
+     *
+     * <p>The FASTA file may contain multiple sequence records. Each record is expected to include
+     * a headerline from which the metadata can be parsed, and can be fetched using ids which are assigned according to the order of the fasta entries itself.</p>
+     *
+     * @param fastaFile FASTA file to open (must not be {@code null})
+     * @param alphabet FASTA file to open (must not be {@code null})
+     * @return a {@link SequenceReader} backed by the FASTA file
+     * @throws Exception if the file cannot be opened, parsed, or validated (e.g. invalid FASTA,
+     *                   invalid headers, duplicate IDs, I/O errors)
+     */
+    public static SequenceFormatReader readFasta(File fastaFile, SequenceAlphabet alphabet) throws Exception {
+        return new FastaReader(fastaFile, alphabet);
+    }
+
+    /**
+     * Opens a reader for a plain (single-record) sequence submission.
+     *
+     * <p>This uses a wrapper {@link SequenceReaderWrapper} which enables interoperability in case both FASTA, plain sequences and/or other formats are ingested simoultaneously.
+     * As such, the sequence record is addressed with the id 0 (long). The headerline string is assumed to be non-existent here, so
+     * metadata access via {@link SequenceFormatReader#getHeaderline(long)} will return an empty optional value,
+     * which can allready be predicted by using the {@link SequenceFormatReader#getSequenceFileFormat()} and judgement on whether the entry contains any metadata.</p>
+     *
+     * @param sequenceFile plain sequence file to open (must not be {@code null})
+     * @return a {@link SequenceReader} backed by the plain sequence file
+     * @throws Exception if the file cannot be opened, parsed, or validated (e.g. not UTF-8, wrong format,
+     *                   empty file, more than one record, I/O errors)
+     */
+    public static SequenceFormatReader readPlainSequence(File sequenceFile) throws Exception {
+        return new SequenceReaderWrapper(sequenceFile);
+    }
+}

@@ -24,22 +24,22 @@ public class SequenceReaderIntegrationTest {
     void doesNotTolerateEmptyFile() throws IOException {
         File sequenceFile = TestResources.file("sequence", "emptyfile.txt");
 
-        assertThrows(SequenceFileException.class, () -> new PlainSequenceReader(sequenceFile));
+        assertThrows(SequenceFileException.class, () -> new SequenceReader(sequenceFile));
     }
 
     @Test
     void doesNotTolerateAnythingExceptSequenceAlphabetInFile() throws IOException {
         File sequenceFile = TestResources.file("sequence", "malformed_example.txt");
 
-        assertThrows(SequenceFileException.class, () -> new PlainSequenceReader(sequenceFile));
+        assertThrows(SequenceFileException.class, () -> new SequenceReader(sequenceFile));
     }
 
     @Test
     void countsOnlyNsSequenceCorrectly() throws IOException, SequenceFileException {
         File sequenceFile = TestResources.file("sequence", "only_ns_example.txt");
-        try (PlainSequenceReader service = new PlainSequenceReader(sequenceFile)) {
+        try (SequenceReader service = new SequenceReader(sequenceFile)) {
 
-            SequenceStats sequence = service.getSequenceEntry();
+            SequenceStats sequence = service.getStats();
             assertEquals(43, sequence.leadingNsCount(), "leading Ns");
             assertEquals(43, sequence.trailingNsCount(), "trailing Ns");
             assertEquals(43, sequence.baseCount().get('N'), "total Ns");
@@ -49,9 +49,9 @@ public class SequenceReaderIntegrationTest {
     @Test
     void proccessingSequenceWithCarriageReturnsCorrectly() throws IOException, SequenceFileException {
         File sequenceFile = TestResources.file("sequence", "example_with_carriage_return_char.txt");
-        try (PlainSequenceReader service = new PlainSequenceReader(sequenceFile)) {
+        try (SequenceReader service = new SequenceReader(sequenceFile)) {
 
-            SequenceStats sequence = service.getSequenceEntry();
+            SequenceStats sequence = service.getStats();
 
             // From the sample file above:
             assertEquals(9, sequence.leadingNsCount(), "leading Ns");
@@ -86,9 +86,9 @@ public class SequenceReaderIntegrationTest {
     @Test
     void gettingSequenceSliceAsStringReturnsCorrectly() throws IOException, SequenceFileException {
         File sequenceFile = TestResources.file("sequence", "example.txt");
-        try (PlainSequenceReader service = new PlainSequenceReader(sequenceFile)) {
+        try (SequenceReader service = new SequenceReader(sequenceFile)) {
 
-            SequenceStats sequence = service.getSequenceEntry();
+            SequenceStats sequence = service.getStats();
 
             // From the sample file above:
             assertEquals(2, sequence.leadingNsCount(), "ID1 leading Ns");
@@ -107,9 +107,9 @@ public class SequenceReaderIntegrationTest {
     @Test
     void gettingSequenceViaReaderGivesCorrectResult() throws IOException, SequenceFileException {
         File sequenceFile = TestResources.file("sequence", "example.txt");
-        try (PlainSequenceReader service = new PlainSequenceReader(sequenceFile)) {
+        try (SequenceReader service = new SequenceReader(sequenceFile)) {
 
-            SequenceStats sequence = service.getSequenceEntry();
+            SequenceStats sequence = service.getStats();
 
             // stream whole sequence with the reader
             String streamedSequence;
@@ -146,9 +146,9 @@ public class SequenceReaderIntegrationTest {
     @Test
     void gettingStringAsAStringVsStreamProducesSameResultSlices() throws IOException, SequenceFileException {
         File sequenceFile = TestResources.file("sequence", "example.txt");
-        try (PlainSequenceReader service = new PlainSequenceReader(sequenceFile)) {
+        try (SequenceReader service = new SequenceReader(sequenceFile)) {
 
-            SequenceStats sequenceInfo = service.getSequenceEntry();
+            SequenceStats sequenceInfo = service.getStats();
 
             for (long end = 2; end <= sequenceInfo.totalBases(); end++) {
                 // get slice as string
