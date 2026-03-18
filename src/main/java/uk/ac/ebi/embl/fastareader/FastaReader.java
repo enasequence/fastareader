@@ -188,14 +188,10 @@ public final class FastaReader implements AutoCloseable, SequenceFormatReader {
     }
 
     private void resetData() {
-        if (this.orderedIds != null) this.orderedIds.clear();
-        else this.orderedIds = new ArrayList<>();
-        if (this.headerLinesMap != null) this.headerLinesMap.clear();
-        else this.headerLinesMap = new HashMap<>();
-        if (this.sequenceStatsMap != null) this.sequenceStatsMap.clear();
-        else this.sequenceStatsMap = new HashMap<>();
-        if (this.sequenceIndexesMap != null) this.sequenceIndexesMap.clear();
-        else this.sequenceIndexesMap = new HashMap<>();
+        this.orderedIds = new ArrayList<>();
+        this.headerLinesMap = new HashMap<>();
+        this.sequenceStatsMap = new HashMap<>();
+        this.sequenceIndexesMap = new HashMap<>();
     }
 
     /**
