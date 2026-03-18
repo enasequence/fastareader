@@ -39,10 +39,10 @@ public class SequenceReaderIntegrationTest {
         File sequenceFile = TestResources.file("sequence", "only_ns_example.txt");
         try (SequenceReader service = new SequenceReader(sequenceFile)) {
 
-            SequenceEntry sequence = service.getSequenceEntry();
-            assertEquals(43, sequence.leadingNsCount, "leading Ns");
-            assertEquals(43, sequence.trailingNsCount, "trailing Ns");
-            assertEquals(43, sequence.baseCount.get('N'), "total Ns");
+            SequenceStats sequence = service.getStats();
+            assertEquals(43, sequence.leadingNsCount(), "leading Ns");
+            assertEquals(43, sequence.trailingNsCount(), "trailing Ns");
+            assertEquals(43, sequence.baseCount().get('N'), "total Ns");
         }
     }
 
@@ -51,24 +51,24 @@ public class SequenceReaderIntegrationTest {
         File sequenceFile = TestResources.file("sequence", "example_with_carriage_return_char.txt");
         try (SequenceReader service = new SequenceReader(sequenceFile)) {
 
-            SequenceEntry sequence = service.getSequenceEntry();
+            SequenceStats sequence = service.getStats();
 
             // From the sample file above:
-            assertEquals(9, sequence.leadingNsCount, "leading Ns");
-            assertEquals(1, sequence.trailingNsCount, "trailing Ns");
+            assertEquals(9, sequence.leadingNsCount(), "leading Ns");
+            assertEquals(1, sequence.trailingNsCount(), "trailing Ns");
 
             String sequence1StartSlice =
                     service.getSequenceSliceString(1, 11, SequenceRangeOption.WITHOUT_EDGE_N_BASES);
             assertEquals("CCCGGCGCGGG", sequence1StartSlice);
 
             String sequence1EndSlice = service.getSequenceSliceString(
-                    sequence.totalBasesWithoutNBases - 9,
-                    sequence.totalBasesWithoutNBases,
+                    sequence.totalBasesWithoutNBases() - 9,
+                    sequence.totalBasesWithoutNBases(),
                     SequenceRangeOption.WITHOUT_EDGE_N_BASES);
             assertEquals("AAAAAAAAAA", sequence1EndSlice);
 
             String sequence1withoutNbases = service.getSequenceSliceString(
-                    1, sequence.totalBasesWithoutNBases, SequenceRangeOption.WITHOUT_EDGE_N_BASES);
+                    1, sequence.totalBasesWithoutNBases(), SequenceRangeOption.WITHOUT_EDGE_N_BASES);
             assertEquals(
                     "CCCGGCGCGGGCAAGAAGCTGCCGCGTCTGCCCAAGTGTGCCCGCTGCCGCAACCACGGC"
                             + "TACTCCTCGCCGCTGAAGGGGCACAAGCGGTTCTGCATGTGGCGGGACTGCCAGTGCAAG"
@@ -88,18 +88,18 @@ public class SequenceReaderIntegrationTest {
         File sequenceFile = TestResources.file("sequence", "example.txt");
         try (SequenceReader service = new SequenceReader(sequenceFile)) {
 
-            SequenceEntry sequence = service.getSequenceEntry();
+            SequenceStats sequence = service.getStats();
 
             // From the sample file above:
-            assertEquals(2, sequence.leadingNsCount, "ID1 leading Ns");
-            assertEquals(2, sequence.trailingNsCount, "ID1 trailing Ns");
+            assertEquals(2, sequence.leadingNsCount(), "ID1 leading Ns");
+            assertEquals(2, sequence.trailingNsCount(), "ID1 trailing Ns");
 
             String sequence1 =
-                    service.getSequenceSliceString(1, sequence.totalBases, SequenceRangeOption.WHOLE_SEQUENCE);
+                    service.getSequenceSliceString(1, sequence.totalBases(), SequenceRangeOption.WHOLE_SEQUENCE);
             assertEquals("NNACACGTTTNN", sequence1);
 
             String sequence1withoutNbases = service.getSequenceSliceString(
-                    1, sequence.totalBasesWithoutNBases, SequenceRangeOption.WITHOUT_EDGE_N_BASES);
+                    1, sequence.totalBasesWithoutNBases(), SequenceRangeOption.WITHOUT_EDGE_N_BASES);
             assertEquals("ACACGTTT", sequence1withoutNbases);
         }
     }
@@ -109,12 +109,12 @@ public class SequenceReaderIntegrationTest {
         File sequenceFile = TestResources.file("sequence", "example.txt");
         try (SequenceReader service = new SequenceReader(sequenceFile)) {
 
-            SequenceEntry sequence = service.getSequenceEntry();
+            SequenceStats sequence = service.getStats();
 
             // stream whole sequence with the reader
             String streamedSequence;
             try (java.io.Reader r =
-                    service.getSequenceSliceReader(1, sequence.totalBases, SequenceRangeOption.WHOLE_SEQUENCE)) {
+                    service.getSequenceSliceReader(1, sequence.totalBases(), SequenceRangeOption.WHOLE_SEQUENCE)) {
                 StringBuilder sb = new StringBuilder();
                 char[] cbuf = new char[8192];
                 int n;
@@ -129,7 +129,7 @@ public class SequenceReaderIntegrationTest {
             // stream whole sequence with the reader
             String streamedSequenceWithoutNbases;
             try (java.io.Reader r = service.getSequenceSliceReader(
-                    1, sequence.totalBasesWithoutNBases, SequenceRangeOption.WITHOUT_EDGE_N_BASES)) {
+                    1, sequence.totalBasesWithoutNBases(), SequenceRangeOption.WITHOUT_EDGE_N_BASES)) {
                 StringBuilder sb = new StringBuilder();
                 char[] cbuf = new char[8192];
                 int n;
@@ -148,9 +148,9 @@ public class SequenceReaderIntegrationTest {
         File sequenceFile = TestResources.file("sequence", "example.txt");
         try (SequenceReader service = new SequenceReader(sequenceFile)) {
 
-            SequenceEntry sequenceInfo = service.getSequenceEntry();
+            SequenceStats sequenceInfo = service.getStats();
 
-            for (long end = 2; end <= sequenceInfo.totalBases; end++) {
+            for (long end = 2; end <= sequenceInfo.totalBases(); end++) {
                 // get slice as string
                 String sequence = service.getSequenceSliceString(1, end, SequenceRangeOption.WHOLE_SEQUENCE);
                 // stream sequence with the reader

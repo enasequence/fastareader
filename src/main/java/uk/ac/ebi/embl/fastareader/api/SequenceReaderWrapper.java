@@ -1,0 +1,92 @@
+/*
+ * Copyright 2026 EMBL - European Bioinformatics Institute
+ * Licensed under the Apache License, Version 2.0 (the "License"); you may not use this
+ * file except in compliance with the License. You may obtain a copy of the License at
+ * http://www.apache.org/licenses/LICENSE-2.0
+ * Unless required by applicable law or agreed to in writing, software distributed under the
+ * License is distributed on an "AS IS" BASIS, WITHOUT WARRANTIES OR
+ * CONDITIONS OF ANY KIND, either express or implied. See the License for the
+ * specific language governing permissions and limitations under the License.
+ */
+package uk.ac.ebi.embl.fastareader.api;
+
+import java.io.File;
+import java.io.Reader;
+import java.util.List;
+import java.util.Optional;
+import uk.ac.ebi.embl.fastareader.SequenceFileFormat;
+import uk.ac.ebi.embl.fastareader.SequenceRangeOption;
+import uk.ac.ebi.embl.fastareader.SequenceReader;
+import uk.ac.ebi.embl.fastareader.SequenceStats;
+import uk.ac.ebi.embl.fastareader.sequenceutils.SequenceIndex;
+
+public class SequenceReaderWrapper implements AutoCloseable, SequenceFormatReader {
+
+    private final SequenceReader sequenceReader;
+    private final long precodedId = 0L;
+
+    public SequenceReaderWrapper(File sequenceFile) throws Exception {
+        this.sequenceReader = new SequenceReader(sequenceFile);
+    }
+
+    @Override
+    public SequenceFileFormat getSequenceFileFormat() {
+        return sequenceReader.getSequenceFileFormat();
+    }
+
+    @Override
+    public List<Long> getOrderedIds() {
+        return List.of(precodedId);
+    }
+
+    @Override
+    public Optional<String> getHeaderline(long id) {
+        return Optional.empty();
+    }
+
+    @Override
+    public SequenceStats getStats(long id) {
+        validateId(id);
+        return sequenceReader.getStats();
+    }
+
+    @Override
+    public String getSequenceSlice(long id, long fromBase, long toBase) throws Exception {
+        return getSequenceSlice(id, fromBase, toBase, SequenceRangeOption.WHOLE_SEQUENCE);
+    }
+
+    @Override
+    public String getSequenceSlice(long id, long fromBase, long toBase, SequenceRangeOption option) throws Exception {
+        validateId(id);
+        return sequenceReader.getSequenceSliceString(fromBase, toBase, option);
+    }
+
+    @Override
+    public Reader getSequenceSliceReader(long id, long fromBase, long toBase) throws Exception {
+        return getSequenceSliceReader(id, fromBase, toBase, SequenceRangeOption.WHOLE_SEQUENCE);
+    }
+
+    @Override
+    public Reader getSequenceSliceReader(long id, long fromBase, long toBase, SequenceRangeOption option)
+            throws Exception {
+        validateId(id);
+        return sequenceReader.getSequenceSliceReader(fromBase, toBase, option);
+    }
+
+    @Override
+    public SequenceIndex getSequenceIndex(long id) {
+        validateId(id);
+        return sequenceReader.getSequenceIndex();
+    }
+
+    @Override
+    public void close() throws Exception {
+        sequenceReader.close();
+    }
+
+    private void validateId(long id) {
+        if (id != precodedId) {
+            throw new IllegalArgumentException("No record for id :" + id);
+        }
+    }
+}

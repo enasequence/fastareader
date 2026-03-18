@@ -10,15 +10,18 @@
  */
 package uk.ac.ebi.embl.fastareader;
 
-enum FileFormat {
-    /**
-     * Header on, meaning the expected file format is a generic FASTA format
-     * with multiple sequences, with a header starting with '>' before each sequence
-     */
-    FASTA,
-    /**
-     * The expected file format is a raw sequence with nucleotides (ACGTCGG...) in the file,
-     * with nothing else - no metadata or extra information.
-     */
-    PLAIN_SINGLE_SEQUENCE
-}
+import java.util.Map;
+
+public record SequenceStats(
+        long totalBases,
+        long totalBasesWithoutNBases,
+        long leadingNsCount,
+        long trailingNsCount,
+        /**
+         * Count of all appearances of permitted sequence characters in this entry.
+         * <p>
+         * Letter keys are canonicalized to uppercase (e.g., 'a' and 'A' are counted under 'A').
+         * Non-letter allowed characters (e.g., '-', '.', '*') appear as-is.
+         * Allowed characters not present have a count of 0.
+         */
+        Map<Character, Long> baseCount) {}

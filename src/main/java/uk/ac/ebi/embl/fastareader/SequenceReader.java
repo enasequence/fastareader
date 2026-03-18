@@ -33,17 +33,22 @@ import uk.ac.ebi.embl.fastareader.sequenceutils.SequenceIndex;
  * <p>Intended for UTF-8 encoded "sequence-only" inputs (no FASTA headers, no quality scores).</p>
  */
 public class SequenceReader implements AutoCloseable {
+
+    private static final SequenceFileFormat FILE_FORMAT = SequenceFileFormat.PLAIN_SEQUENCE;
+
     private static final int UTF_8_CHECK_MAXIMUM_BYTES =
             1024 * 1024; // check just preliminary first 1Mb to confirm encoding is likely UTF8
 
-    /** Returns Sequence entry data */
-    @Getter
-    private SequenceEntry sequenceEntry = null;
-
-    private SequenceIndex sequenceIndex = null;
     private File file;
     private InternalReader reader;
     private SequenceAlphabet alphabet;
+
+    /** Returns Sequence entry data */
+    @Getter
+    private SequenceStats stats;
+
+    @Getter
+    private SequenceIndex sequenceIndex;
 
     /** Initializes Sequence reader, skimming through the whole file right away. */
     public SequenceReader(File sequenceFile) throws SequenceFileException, IOException {
@@ -56,12 +61,12 @@ public class SequenceReader implements AutoCloseable {
      * */
     public SequenceReader(File sequenceFile, SequenceAlphabet alphabet) throws SequenceFileException, IOException {
         this.file = Objects.requireNonNull(sequenceFile, "sequenceFile");
-        this.sequenceIndex = null;
-        this.sequenceEntry = null;
-        this.alphabet = alphabet;
-        this.reader = new InternalReader(sequenceFile, this.alphabet, FileFormat.PLAIN_SINGLE_SEQUENCE);
+        checkIfUtf8(file);
 
-        checkIfUtf8(sequenceFile);
+        resetData();
+        this.alphabet = alphabet;
+        this.reader = new InternalReader(sequenceFile, this.alphabet, FILE_FORMAT);
+
         loadSequence();
     }
 
@@ -114,10 +119,14 @@ public class SequenceReader implements AutoCloseable {
 
     // ---------------------------- interactions with the reader ----------------------------
 
+    public SequenceFileFormat getSequenceFileFormat() {
+        return FILE_FORMAT;
+    }
+
     public void openNewFile(File sequenceFile) throws SequenceFileException, IOException {
         close(); // if already open, close first
         this.file = Objects.requireNonNull(sequenceFile, "file");
-        reader = new InternalReader(sequenceFile, this.alphabet, FileFormat.PLAIN_SINGLE_SEQUENCE);
+        reader = new InternalReader(sequenceFile, this.alphabet, FILE_FORMAT);
         checkIfUtf8(sequenceFile);
         loadSequence();
     }
@@ -125,8 +134,7 @@ public class SequenceReader implements AutoCloseable {
     /** Close the reader. Safe to call multiple times. */
     @Override
     public void close() throws IOException {
-        this.sequenceEntry = null;
-        this.sequenceIndex = null;
+        resetData();
         if (reader != null) {
             reader.close();
             reader = null;
@@ -161,18 +169,22 @@ public class SequenceReader implements AutoCloseable {
             throw new SequenceFileException("More than one sequence entry found in file, which shouldn't happen.");
 
         var entry = readEntries.get(0);
+
         long adjustedBases = entry.getSequenceIndex().totalBases()
                 - entry.getSequenceIndex().startNBasesCount
                 - entry.getSequenceIndex().endNBasesCount;
-
-        sequenceEntry = new SequenceEntry(
-                adjustedBases,
+        stats = new SequenceStats(
                 entry.getSequenceIndex().totalBases(),
+                adjustedBases,
                 entry.getSequenceIndex().startNBasesCount,
                 entry.getSequenceIndex().endNBasesCount,
                 entry.getSequenceIndex().caseInsensitiveBaseCount);
-
         sequenceIndex = entry.getSequenceIndex();
+    }
+
+    private void resetData() {
+        this.sequenceIndex = null;
+        this.stats = null;
     }
 
     private void ensureFileReaderOpen() {

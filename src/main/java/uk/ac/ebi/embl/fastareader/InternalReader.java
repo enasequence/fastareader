@@ -30,14 +30,14 @@ class InternalReader implements AutoCloseable {
     private final FileChannel channel;
     private final long fileSize;
     private final SequenceAlphabet alphabet;
-    private final FileFormat fileFormat;
+    private final SequenceFileFormat fileFormat;
     HeaderLineDecoder headerLineDecoder;
 
-    InternalReader(File file, FileFormat fileFormat) throws IOException {
+    InternalReader(File file, SequenceFileFormat fileFormat) throws IOException {
         this(file, SequenceAlphabet.defaultNucleotideAlphabet(), fileFormat);
     }
 
-    InternalReader(File file, SequenceAlphabet alphabet, FileFormat fileFormat) throws IOException {
+    InternalReader(File file, SequenceAlphabet alphabet, SequenceFileFormat fileFormat) throws IOException {
         Objects.requireNonNull(file, "Input FASTA file is null");
         if (!file.exists()) throw new FileNotFoundException(file.getAbsolutePath());
         if (file.isDirectory()) throw new FileNotFoundException("Directory: " + file.getAbsolutePath());
@@ -198,7 +198,7 @@ class InternalReader implements AutoCloseable {
                             .lastBaseByte; // read from the end of last sequence
                 }
                 break;
-            case PLAIN_SINGLE_SEQUENCE:
+            case PLAIN_SEQUENCE:
                 Optional<SequenceEntryMetadata> sequenceEntryMetadata = readFileAsSequence();
                 if (sequenceEntryMetadata.isEmpty()) break;
                 entries.add(sequenceEntryMetadata.get());
