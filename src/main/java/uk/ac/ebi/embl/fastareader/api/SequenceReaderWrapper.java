@@ -18,6 +18,7 @@ import uk.ac.ebi.embl.fastareader.SequenceFileFormat;
 import uk.ac.ebi.embl.fastareader.SequenceRangeOption;
 import uk.ac.ebi.embl.fastareader.SequenceReader;
 import uk.ac.ebi.embl.fastareader.SequenceStats;
+import uk.ac.ebi.embl.fastareader.sequenceutils.SequenceAlphabet;
 import uk.ac.ebi.embl.fastareader.sequenceutils.SequenceIndex;
 
 public class SequenceReaderWrapper implements AutoCloseable, SequenceFormatReader {
@@ -32,6 +33,16 @@ public class SequenceReaderWrapper implements AutoCloseable, SequenceFormatReade
     @Override
     public SequenceFileFormat getSequenceFileFormat() {
         return sequenceReader.getSequenceFileFormat();
+    }
+
+    @Override
+    public File getFile() {
+        return sequenceReader.getFile();
+    }
+
+    @Override
+    public SequenceAlphabet getSequenceAlphabet() {
+        return sequenceReader.getAlphabet();
     }
 
     @Override

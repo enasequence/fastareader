@@ -10,12 +10,14 @@
  */
 package uk.ac.ebi.embl.fastareader.api;
 
+import java.io.File;
 import java.io.Reader;
 import java.util.List;
 import java.util.Optional;
 import uk.ac.ebi.embl.fastareader.SequenceFileFormat;
 import uk.ac.ebi.embl.fastareader.SequenceRangeOption;
 import uk.ac.ebi.embl.fastareader.SequenceStats;
+import uk.ac.ebi.embl.fastareader.sequenceutils.SequenceAlphabet;
 import uk.ac.ebi.embl.fastareader.sequenceutils.SequenceIndex;
 
 /**
@@ -34,6 +36,16 @@ public interface SequenceFormatReader extends AutoCloseable {
      * Returns the type of input backing this reader.
      */
     SequenceFileFormat getSequenceFileFormat();
+
+    /**
+     * Returns the file the reader is reading
+     */
+    File getFile();
+
+    /**
+     * Returns the alphabet the reader is using to read the file
+     */
+    SequenceAlphabet getSequenceAlphabet();
 
     /**
      * Returns record ids in a stable, deterministic order.

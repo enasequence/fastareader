@@ -39,14 +39,16 @@ public class SequenceReader implements AutoCloseable {
     private static final int UTF_8_CHECK_MAXIMUM_BYTES =
             1024 * 1024; // check just preliminary first 1Mb to confirm encoding is likely UTF8
 
-    private File file;
     private InternalReader reader;
-    private SequenceAlphabet alphabet;
 
+    /** Returns file & the accompanying alphabet it's read with */
+    @Getter
+    private File file;
+    @Getter
+    private SequenceAlphabet alphabet;
     /** Returns Sequence entry data */
     @Getter
     private SequenceStats stats;
-
     @Getter
     private SequenceIndex sequenceIndex;
 

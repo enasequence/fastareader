@@ -79,12 +79,42 @@ public final class FastaReader implements AutoCloseable, SequenceFormatReader {
         loadEntries();
     }
 
-    // ---------------------------- queries ----------------------------
+    /**
+     * Initializes FASTA reader, loading the sequenceIndexes.
+     * Adds the option to define your own desired SequenceAlphabet and a list of tolerable characters in the sequence (usually eg. \n, \r)
+     * */
+    public FastaReader(File fastaFile, HashMap<Long, SequenceIndex> indexes, HashMap<Long, String> headerLines)
+            throws FastaFileException, IOException {
+        this.file = Objects.requireNonNull(fastaFile, "sequenceFile");
+        checkIfUtf8(file);
+
+        resetData();
+        this.sequenceIndexesMap = indexes;
+        setUpSequenceStatsFromIndexes();
+        this.headerLinesMap = headerLines==null?new HashMap<>():headerLines;
+
+
+        this.reader = new InternalReader(fastaFile, this.alphabet, FILE_FORMAT);
+
+        loadEntries();
+    }
 
     @Override
     public SequenceFileFormat getSequenceFileFormat() {
         return FILE_FORMAT;
     }
+
+    @Override
+    public File getFile() {
+        return file;
+    }
+
+    @Override
+    public SequenceAlphabet getSequenceAlphabet() {
+        return alphabet;
+    }
+
+    // ---------------------------- queries ----------------------------
 
     @Override
     public Optional<String> getHeaderline(long id) {
@@ -214,19 +244,24 @@ public final class FastaReader implements AutoCloseable, SequenceFormatReader {
             orderedIds.add(currentId);
             headerLinesMap.put(currentId, entry.getHeaderLine());
             sequenceIndexesMap.put(currentId, entry.getSequenceIndex());
-
-            long adjustedBases = entry.sequenceIndex.totalBases()
-                    - entry.sequenceIndex.startNBasesCount
-                    - entry.sequenceIndex.endNBasesCount;
-            var sequenceStats = new SequenceStats(
-                    entry.sequenceIndex.totalBases(),
-                    adjustedBases,
-                    entry.sequenceIndex.startNBasesCount,
-                    entry.sequenceIndex.endNBasesCount,
-                    entry.sequenceIndex.caseInsensitiveBaseCount);
-            sequenceStatsMap.put(currentId, sequenceStats);
-
             currentId++;
+        }
+
+        setUpSequenceStatsFromIndexes();
+    }
+
+    private void setUpSequenceStatsFromIndexes() {
+        for (var fastaReaderId : sequenceIndexesMap.keySet()) {
+            var sequenceIndex = sequenceIndexesMap.get(fastaReaderId);
+            long adjustedBases =
+                    sequenceIndex.totalBases() - sequenceIndex.startNBasesCount - sequenceIndex.endNBasesCount;
+            var sequenceStats = new SequenceStats(
+                    sequenceIndex.totalBases(),
+                    adjustedBases,
+                    sequenceIndex.startNBasesCount,
+                    sequenceIndex.endNBasesCount,
+                    sequenceIndex.caseInsensitiveBaseCount);
+            sequenceStatsMap.put(fastaReaderId, sequenceStats);
         }
     }
 
