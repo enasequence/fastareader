@@ -19,6 +19,7 @@ import uk.ac.ebi.embl.fastareader.SequenceFileFormat;
 import uk.ac.ebi.embl.fastareader.SequenceRangeOption;
 import uk.ac.ebi.embl.fastareader.SequenceReader;
 import uk.ac.ebi.embl.fastareader.SequenceStats;
+import uk.ac.ebi.embl.fastareader.api.rereading.SequenceFormatReaderDTO;
 import uk.ac.ebi.embl.fastareader.sequenceutils.SequenceAlphabet;
 import uk.ac.ebi.embl.fastareader.sequenceutils.SequenceIndex;
 
@@ -99,6 +100,20 @@ public class SequenceReaderWrapper implements AutoCloseable, SequenceFormatReade
     public SequenceIndex getSequenceIndex(long id) {
         validateId(id);
         return sequenceReader.getSequenceIndex();
+    }
+
+    @Override
+    public SequenceFormatReaderDTO exportReaderSettings() {
+        var indexHashMap = new HashMap<Long, SequenceIndex>();
+        indexHashMap.put(precodedId, sequenceReader.getSequenceIndex());
+
+        return new SequenceFormatReaderDTO(
+                sequenceReader.getFile().toPath(),
+                sequenceReader.getSequenceFileFormat(),
+                sequenceReader.getAlphabet(),
+                indexHashMap,
+                null
+        );
     }
 
     @Override

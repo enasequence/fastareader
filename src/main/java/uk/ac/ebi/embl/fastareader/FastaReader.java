@@ -17,6 +17,7 @@ import java.util.*;
 import lombok.Getter;
 import lombok.Setter;
 import uk.ac.ebi.embl.fastareader.api.SequenceFormatReader;
+import uk.ac.ebi.embl.fastareader.api.rereading.SequenceFormatReaderDTO;
 import uk.ac.ebi.embl.fastareader.encoding.Utf8Detector;
 import uk.ac.ebi.embl.fastareader.exception.FastaFileException;
 import uk.ac.ebi.embl.fastareader.exception.SequenceReadingException;
@@ -199,6 +200,17 @@ public final class FastaReader implements AutoCloseable, SequenceFormatReader {
         reader = new InternalReader(fastaFile, this.alphabet, SequenceFileFormat.FASTA);
         checkIfUtf8(fastaFile);
         loadEntries();
+    }
+
+    @Override
+    public SequenceFormatReaderDTO exportReaderSettings() {
+        return new SequenceFormatReaderDTO(
+                getFile().toPath(),
+                getSequenceFileFormat(),
+                getAlphabet(),
+                sequenceIndexesMap,
+                headerLinesMap
+        );
     }
 
     /** Close the reader. Safe to call multiple times. */

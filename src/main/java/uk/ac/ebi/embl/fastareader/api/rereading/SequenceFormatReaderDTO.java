@@ -26,8 +26,7 @@ public class SequenceFormatReaderDTO {
     private final SequenceFileFormat sequenceFileFormat;
     private final SequenceAlphabet sequenceAlphabet;
     private final HashMap<Long, SequenceIndex>
-            sequenceIndexesMap; // fastaReaderId -> sequenceIndex, should have one value  in case of SequenceFileFormat
-    // = Plain sequence
+            sequenceIndexesMap; // fastaReaderId -> sequenceIndex, should have one value  in case of SequenceFileFormat - Plain sequence
     private final HashMap<Long, String>
             headerLines; // fastaReaderId -> headerLine, should be null in case of SequenceFileFormat = Plain sequence
 
