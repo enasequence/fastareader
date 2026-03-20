@@ -25,11 +25,9 @@ import uk.ac.ebi.embl.fastareader.sequenceutils.SequenceAlphabet;
  * <h2>Supported submission types</h2>
  * <ul>
  *   <li><b>FASTA</b>: a FASTA file containing one or more entries. Each entry is addressable by
- *       its submission ID (parsed from the JSON header). Accession IDs may be supplied later via
- *       {@link SequenceReader#setAccessionIds(java.util.List)}.</li>
+ *       its fastaReader ID (first entry in the file has the id 0, second one has id 1, etc.).
  *   <li><b>PLAIN_SEQUENCE</b>: a single sequence file containing exactly one sequence record.
- *       The record is addressed by the provided accession ID. A {@link FastaHeader} may be provided
- *       separately (optional).</li>
+ *       The record is addressed by the id 0.
  * </ul>
  *
  * <h2>Resource management</h2>
