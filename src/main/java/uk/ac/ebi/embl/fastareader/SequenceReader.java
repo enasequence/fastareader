@@ -44,11 +44,13 @@ public class SequenceReader implements AutoCloseable {
     /** File & the accompanying alphabet it's read with */
     @Getter
     private File file;
+
     @Getter
     private SequenceAlphabet sequenceAlphabet;
     /** Returns Sequence entry data */
     @Getter
     private SequenceStats stats;
+
     @Getter
     private SequenceIndex sequenceIndex;
 
@@ -61,7 +63,8 @@ public class SequenceReader implements AutoCloseable {
      * Initializes Sequence reader, skimming through the whole file right away.
      * Adds the option to define your own desired SequenceAlphabet and a list of tolerable characters in the sequence (usually eg. \n, \r)
      * */
-    public SequenceReader(File sequenceFile, SequenceAlphabet sequenceAlphabet) throws SequenceFileException, IOException {
+    public SequenceReader(File sequenceFile, SequenceAlphabet sequenceAlphabet)
+            throws SequenceFileException, IOException {
         this.file = Objects.requireNonNull(sequenceFile, "sequenceFile");
         checkIfUtf8(file);
 

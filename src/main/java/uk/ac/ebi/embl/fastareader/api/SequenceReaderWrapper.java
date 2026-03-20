@@ -11,6 +11,7 @@
 package uk.ac.ebi.embl.fastareader.api;
 
 import java.io.File;
+import java.io.IOException;
 import java.io.Reader;
 import java.util.HashMap;
 import java.util.List;
@@ -19,7 +20,8 @@ import uk.ac.ebi.embl.fastareader.SequenceFileFormat;
 import uk.ac.ebi.embl.fastareader.SequenceRangeOption;
 import uk.ac.ebi.embl.fastareader.SequenceReader;
 import uk.ac.ebi.embl.fastareader.SequenceStats;
-import uk.ac.ebi.embl.fastareader.api.rereading.SequenceFormatReaderDTO;
+import uk.ac.ebi.embl.fastareader.api.rereading.SequenceInfoDTO;
+import uk.ac.ebi.embl.fastareader.exception.SequenceFileException;
 import uk.ac.ebi.embl.fastareader.sequenceutils.SequenceAlphabet;
 import uk.ac.ebi.embl.fastareader.sequenceutils.SequenceIndex;
 
@@ -28,18 +30,18 @@ public class SequenceReaderWrapper implements AutoCloseable, SequenceFormatReade
     private final SequenceReader sequenceReader;
     private final long precodedId = 0L;
 
-    public SequenceReaderWrapper(File sequenceFile) throws Exception {
+    public SequenceReaderWrapper(File sequenceFile) throws SequenceFileException, IOException {
         this.sequenceReader = new SequenceReader(sequenceFile);
     }
 
     public SequenceReaderWrapper(
             File file, SequenceAlphabet sequenceAlphabet, HashMap<Long, SequenceIndex> sequenceIndexesMap)
-            throws Exception {
-        if (sequenceIndexesMap.size() != 1 && !sequenceIndexesMap.keySet().contains(precodedId)) {
+            throws SequenceFileException, IOException {
+        if (sequenceIndexesMap.size() != 1 && !sequenceIndexesMap.containsKey(precodedId)) {
             throw new IllegalArgumentException(
                     "Sequence files must have exactly one entry which should be indexed with " + precodedId + " .");
         }
-        this.sequenceReader = new SequenceReader(file, sequenceAlphabet, sequenceIndexesMap.get(0L));
+        this.sequenceReader = new SequenceReader(file, sequenceAlphabet, sequenceIndexesMap.get(precodedId));
     }
 
     @Override
@@ -103,17 +105,17 @@ public class SequenceReaderWrapper implements AutoCloseable, SequenceFormatReade
     }
 
     @Override
-    public SequenceFormatReaderDTO exportReaderSettings() {
+    public SequenceInfoDTO exportReaderSettings() {
         var indexHashMap = new HashMap<Long, SequenceIndex>();
         indexHashMap.put(precodedId, sequenceReader.getSequenceIndex());
 
-        return new SequenceFormatReaderDTO(
-                sequenceReader.getFile().toPath(),
-                sequenceReader.getSequenceFileFormat(),
-                sequenceReader.getSequenceAlphabet(),
-                indexHashMap,
-                null
-        );
+        SequenceInfoDTO dto = new SequenceInfoDTO();
+        dto.filePath = sequenceReader.getFile().toPath();
+        dto.sequenceFileFormat = sequenceReader.getSequenceFileFormat();
+        dto.sequenceAlphabet = sequenceReader.getSequenceAlphabet();
+        dto.sequenceIndexesMap = indexHashMap;
+        dto.headerLines = null; // null for PLAIN_SEQUENCE format
+        return dto;
     }
 
     @Override

@@ -10,13 +10,16 @@
  */
 package uk.ac.ebi.embl.fastareader.api;
 
+import static uk.ac.ebi.embl.fastareader.SequenceFileFormat.FASTA;
+import static uk.ac.ebi.embl.fastareader.SequenceFileFormat.PLAIN_SEQUENCE;
+
 import java.io.File;
 import java.nio.file.Files;
 import java.nio.file.Path;
 import uk.ac.ebi.embl.fastareader.FastaReader;
 import uk.ac.ebi.embl.fastareader.SequenceFileFormat;
 import uk.ac.ebi.embl.fastareader.SequenceReader;
-import uk.ac.ebi.embl.fastareader.api.rereading.SequenceFormatReaderDTO;
+import uk.ac.ebi.embl.fastareader.api.rereading.SequenceInfoDTO;
 import uk.ac.ebi.embl.fastareader.sequenceutils.SequenceAlphabet;
 
 /**
@@ -98,30 +101,26 @@ public class SequenceFormatReaderFactory {
     }
 
     /**
-     * Opens an appropriate reader from a {@link SequenceFormatReaderDTO}.
+     * Opens an appropriate reader from a {@link SequenceInfoDTO}.
      */
-    public static SequenceFormatReader reReadSequence(SequenceFormatReaderDTO dto) throws Exception {
-        Path filePath = dto.getFilePath();
+    public static SequenceFormatReader readBySequenceInfo(SequenceInfoDTO dto) throws Exception {
+        Path filePath = dto.filePath;
 
         if (!Files.exists(filePath) || !Files.isRegularFile(filePath)) {
             throw new IllegalArgumentException("Not a valid file: " + filePath);
         }
 
-        switch (dto.getSequenceFileFormat()) {
+        switch (dto.sequenceFileFormat) {
             case FASTA:
                 return new FastaReader(
-                        filePath.toFile(),
-                        dto.getSequenceAlphabet(),
-                        dto.getSequenceIndexesMap(),
-                        dto.getHeaderLines());
+                        filePath.toFile(), dto.sequenceAlphabet, dto.sequenceIndexesMap, dto.headerLines);
             case PLAIN_SEQUENCE:
-                if (dto.getHeaderLines() != null && !dto.getHeaderLines().isEmpty()) {
+                if (dto.headerLines != null && !dto.headerLines.isEmpty()) {
                     throw new IllegalArgumentException("Header lines are not supported");
                 }
-                return new SequenceReaderWrapper(
-                        filePath.toFile(), dto.getSequenceAlphabet(), dto.getSequenceIndexesMap());
+                return new SequenceReaderWrapper(filePath.toFile(), dto.sequenceAlphabet, dto.sequenceIndexesMap);
             default:
-                throw new IllegalArgumentException("Unrecognized sequence format: " + dto.getSequenceFileFormat()
+                throw new IllegalArgumentException("Unrecognized sequence format: " + dto.sequenceFileFormat
                         + ". Allowed values: " + SequenceFileFormat.describe());
         }
     }

@@ -17,7 +17,7 @@ import java.util.Optional;
 import uk.ac.ebi.embl.fastareader.SequenceFileFormat;
 import uk.ac.ebi.embl.fastareader.SequenceRangeOption;
 import uk.ac.ebi.embl.fastareader.SequenceStats;
-import uk.ac.ebi.embl.fastareader.api.rereading.SequenceFormatReaderDTO;
+import uk.ac.ebi.embl.fastareader.api.rereading.SequenceInfoDTO;
 import uk.ac.ebi.embl.fastareader.sequenceutils.SequenceAlphabet;
 import uk.ac.ebi.embl.fastareader.sequenceutils.SequenceIndex;
 
@@ -138,7 +138,7 @@ public interface SequenceFormatReader extends AutoCloseable {
     /**
      * exports the Sequence into a format suitable for re-reading an **unchanged** file
      *
-     * @return {@link SequenceFormatReaderDTO} object suitable for reconstructign of the reader, without rereading the file
+     * @return {@link SequenceInfoDTO} object suitable for reconstructign of the reader, without rereading the file
      */
-    SequenceFormatReaderDTO exportReaderSettings();
+    SequenceInfoDTO exportReaderSettings();
 }

@@ -19,12 +19,11 @@ public final class LineEntry {
     public long byteStart; // absolute byte offset of first base in this line
     public long byteEndExclusive; // absolute byte offset one past last base
 
-    @JsonCreator
     public LineEntry(
-            @JsonProperty("baseStart") long baseStart,
-            @JsonProperty("baseEnd") long baseEnd,
-            @JsonProperty("byteStart") long byteStart,
-            @JsonProperty("byteEndExclusive") long byteEndExclusive) {
+            long baseStart,
+            long baseEnd,
+            long byteStart,
+            long byteEndExclusive) {
         this.baseStart = baseStart;
         this.baseEnd = baseEnd;
         this.byteStart = byteStart;

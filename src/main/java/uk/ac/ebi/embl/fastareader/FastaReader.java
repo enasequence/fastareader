@@ -17,7 +17,7 @@ import java.util.*;
 import lombok.Getter;
 import lombok.Setter;
 import uk.ac.ebi.embl.fastareader.api.SequenceFormatReader;
-import uk.ac.ebi.embl.fastareader.api.rereading.SequenceFormatReaderDTO;
+import uk.ac.ebi.embl.fastareader.api.rereading.SequenceInfoDTO;
 import uk.ac.ebi.embl.fastareader.encoding.Utf8Detector;
 import uk.ac.ebi.embl.fastareader.exception.FastaFileException;
 import uk.ac.ebi.embl.fastareader.exception.SequenceReadingException;
@@ -203,14 +203,14 @@ public final class FastaReader implements AutoCloseable, SequenceFormatReader {
     }
 
     @Override
-    public SequenceFormatReaderDTO exportReaderSettings() {
-        return new SequenceFormatReaderDTO(
-                getFile().toPath(),
-                getSequenceFileFormat(),
-                getAlphabet(),
-                sequenceIndexesMap,
-                headerLinesMap
-        );
+    public SequenceInfoDTO exportReaderSettings() {
+        SequenceInfoDTO dto = new SequenceInfoDTO();
+        dto.filePath = getFile().toPath();
+        dto.sequenceFileFormat = getSequenceFileFormat();
+        dto.sequenceAlphabet = getAlphabet();
+        dto.sequenceIndexesMap = sequenceIndexesMap;
+        dto.headerLines = headerLinesMap;
+        return dto;
     }
 
     /** Close the reader. Safe to call multiple times. */
