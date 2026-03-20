@@ -44,11 +44,13 @@ public class SequenceReader implements AutoCloseable {
     /** Returns file & the accompanying alphabet it's read with */
     @Getter
     private File file;
+
     @Getter
     private SequenceAlphabet alphabet;
     /** Returns Sequence entry data */
     @Getter
     private SequenceStats stats;
+
     @Getter
     private SequenceIndex sequenceIndex;
 
@@ -70,6 +72,23 @@ public class SequenceReader implements AutoCloseable {
         this.reader = new InternalReader(sequenceFile, this.alphabet, FILE_FORMAT);
 
         loadSequence();
+    }
+
+    /**
+     * Initializes Sequence reader, loading the sequenceIndex that was read with the provided alphabet.
+     * */
+    public SequenceReader(File file, SequenceAlphabet sequenceAlphabet, SequenceIndex sequenceIndex)
+            throws SequenceFileException, IOException {
+
+        this.file = Objects.requireNonNull(file, "sequenceFile");
+        checkIfUtf8(file);
+
+        resetData();
+        this.alphabet = sequenceAlphabet;
+        this.reader = new InternalReader(file, this.alphabet, FILE_FORMAT);
+
+        this.sequenceIndex = sequenceIndex;
+        setUpSequenceStatsFromIndex();
     }
 
     // ---------------------------- queries ----------------------------
@@ -172,16 +191,18 @@ public class SequenceReader implements AutoCloseable {
 
         var entry = readEntries.get(0);
 
-        long adjustedBases = entry.getSequenceIndex().totalBases()
-                - entry.getSequenceIndex().startNBasesCount
-                - entry.getSequenceIndex().endNBasesCount;
-        stats = new SequenceStats(
-                entry.getSequenceIndex().totalBases(),
-                adjustedBases,
-                entry.getSequenceIndex().startNBasesCount,
-                entry.getSequenceIndex().endNBasesCount,
-                entry.getSequenceIndex().caseInsensitiveBaseCount);
         sequenceIndex = entry.getSequenceIndex();
+        setUpSequenceStatsFromIndex();
+    }
+
+    private void setUpSequenceStatsFromIndex() {
+        long adjustedBases = sequenceIndex.totalBases() - sequenceIndex.startNBasesCount - sequenceIndex.endNBasesCount;
+        stats = new SequenceStats(
+                sequenceIndex.totalBases(),
+                adjustedBases,
+                sequenceIndex.startNBasesCount,
+                sequenceIndex.endNBasesCount,
+                sequenceIndex.caseInsensitiveBaseCount);
     }
 
     private void resetData() {

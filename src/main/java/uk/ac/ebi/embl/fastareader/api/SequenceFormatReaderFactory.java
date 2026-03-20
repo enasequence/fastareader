@@ -11,8 +11,12 @@
 package uk.ac.ebi.embl.fastareader.api;
 
 import java.io.File;
+import java.nio.file.Files;
+import java.nio.file.Path;
 import uk.ac.ebi.embl.fastareader.FastaReader;
+import uk.ac.ebi.embl.fastareader.SequenceFileFormat;
 import uk.ac.ebi.embl.fastareader.SequenceReader;
+import uk.ac.ebi.embl.fastareader.api.rereading.SequenceFormatReaderDTO;
 import uk.ac.ebi.embl.fastareader.sequenceutils.SequenceAlphabet;
 
 /**
@@ -91,5 +95,34 @@ public class SequenceFormatReaderFactory {
      */
     public static SequenceFormatReader readPlainSequence(File sequenceFile) throws Exception {
         return new SequenceReaderWrapper(sequenceFile);
+    }
+
+    /**
+     * Opens an appropriate reader from a {@link SequenceFormatReaderDTO}.
+     */
+    public static SequenceFormatReader reReadSequence(SequenceFormatReaderDTO dto) throws Exception {
+        Path filePath = dto.getFilePath();
+
+        if (!Files.exists(filePath) || !Files.isRegularFile(filePath)) {
+            throw new IllegalArgumentException("Not a valid file: " + filePath);
+        }
+
+        switch (dto.getSequenceFileFormat()) {
+            case FASTA:
+                return new FastaReader(
+                        filePath.toFile(),
+                        dto.getSequenceAlphabet(),
+                        dto.getSequenceIndexesMap(),
+                        dto.getHeaderLines());
+            case PLAIN_SEQUENCE:
+                if (dto.getHeaderLines() != null && !dto.getHeaderLines().isEmpty()) {
+                    throw new IllegalArgumentException("Header lines are not supported");
+                }
+                return new SequenceReaderWrapper(
+                        filePath.toFile(), dto.getSequenceAlphabet(), dto.getSequenceIndexesMap());
+            default:
+                throw new IllegalArgumentException("Unrecognized sequence format: " + dto.getSequenceFileFormat()
+                        + ". Allowed values: " + SequenceFileFormat.describe());
+        }
     }
 }

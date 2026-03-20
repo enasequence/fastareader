@@ -10,6 +10,8 @@
  */
 package uk.ac.ebi.embl.fastareader.sequenceutils;
 
+import com.fasterxml.jackson.annotation.JsonCreator;
+import com.fasterxml.jackson.annotation.JsonProperty;
 import java.util.*;
 
 public final class SequenceIndex {
@@ -23,7 +25,26 @@ public final class SequenceIndex {
     public long endNBasesCount;
     public Map<Character, Long> caseInsensitiveBaseCount;
 
+    @JsonCreator
     public SequenceIndex(
+            @JsonProperty("firstBaseByte") long firstBaseByte,
+            @JsonProperty("lastBaseByte") long lastBaseByte,
+            @JsonProperty("lines") List<LineEntry> lines,
+            @JsonProperty("nextHeaderByte") long nextHeaderByte,
+            @JsonProperty("startNBasesCount") long startNBasesCount,
+            @JsonProperty("endNBasesCount") long endNBasesCount,
+            @JsonProperty("caseInsensitiveBaseCount") Map<Character, Long> caseInsensitiveBaseCount) {
+        this.firstBaseByte = firstBaseByte;
+        this.lastBaseByte = lastBaseByte;
+        this.lines = lines;
+        this.nextHeaderByte = nextHeaderByte;
+        this.startNBasesCount = startNBasesCount;
+        this.endNBasesCount = endNBasesCount;
+        this.caseInsensitiveBaseCount = caseInsensitiveBaseCount;
+    }
+
+    /*** A constructor that is only used by the SequenceIndexBuilder before it counts the actual characters and builds the full index. ***/
+    SequenceIndex(
             long firstBaseByte,
             long startNBasesCount,
             long lastBaseByte,

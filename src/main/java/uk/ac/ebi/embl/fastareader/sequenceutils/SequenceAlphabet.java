@@ -10,20 +10,38 @@
  */
 package uk.ac.ebi.embl.fastareader.sequenceutils;
 
+import com.fasterxml.jackson.annotation.JsonCreator;
+import com.fasterxml.jackson.annotation.JsonProperty;
 import java.util.ArrayList;
 import java.util.Collections;
 import java.util.List;
+import lombok.Getter;
 
 public final class SequenceAlphabet {
     private static final byte N_UPPER = (byte) 'N'; // IUPAC defined any character
+
+    @Getter
     private final boolean[] allowed = new boolean[128];
+
+    @Getter
     private final boolean[] specialChars = new boolean[128];
 
-    public SequenceAlphabet(String chars, String specialChars) {
-        for (char c : chars.toCharArray()) if (c < 128) allowed[c] = true;
+    @JsonProperty("chars")
+    private final String nucleotideString;
+
+    @JsonProperty("specialChars")
+    private final String specialCharsString;
+
+    @JsonCreator
+    public SequenceAlphabet(
+            @JsonProperty("chars") String nucleotideString, @JsonProperty("specialChars") String specialCharsString) {
+        this.nucleotideString = nucleotideString;
+        this.specialCharsString = specialCharsString;
+
+        for (char c : nucleotideString.toCharArray()) if (c < 128) allowed[c] = true;
         allowed['>'] = false;
 
-        for (char c : specialChars.toCharArray()) if (c < 128) this.specialChars[c] = true;
+        for (char c : specialCharsString.toCharArray()) if (c < 128) this.specialChars[c] = true;
     }
 
     /** Fast ASCII check for is it an allowed char. */

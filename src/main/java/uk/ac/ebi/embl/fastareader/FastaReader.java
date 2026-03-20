@@ -80,23 +80,25 @@ public final class FastaReader implements AutoCloseable, SequenceFormatReader {
     }
 
     /**
-     * Initializes FASTA reader, loading the sequenceIndexes.
-     * Adds the option to define your own desired SequenceAlphabet and a list of tolerable characters in the sequence (usually eg. \n, \r)
+     * Initializes FASTA reader, loading the sequenceIndexes that were read with the provided alphabet
+     * If you want to read the headerlines again, they can be passed in using the headerLines parameter, or that field can be null if you don't wish to read them.
      * */
-    public FastaReader(File fastaFile, HashMap<Long, SequenceIndex> indexes, HashMap<Long, String> headerLines)
+    public FastaReader(
+            File fastaFile,
+            SequenceAlphabet alphabet,
+            HashMap<Long, SequenceIndex> indexes,
+            HashMap<Long, String> headerLines)
             throws FastaFileException, IOException {
         this.file = Objects.requireNonNull(fastaFile, "sequenceFile");
         checkIfUtf8(file);
 
         resetData();
-        this.sequenceIndexesMap = indexes;
-        setUpSequenceStatsFromIndexes();
-        this.headerLinesMap = headerLines==null?new HashMap<>():headerLines;
-
-
+        this.alphabet = alphabet;
         this.reader = new InternalReader(fastaFile, this.alphabet, FILE_FORMAT);
 
-        loadEntries();
+        this.sequenceIndexesMap = indexes;
+        setUpSequenceStatsFromIndexes();
+        this.headerLinesMap = headerLines == null ? new HashMap<>() : headerLines;
     }
 
     @Override

@@ -12,6 +12,7 @@ package uk.ac.ebi.embl.fastareader.api;
 
 import java.io.File;
 import java.io.Reader;
+import java.util.HashMap;
 import java.util.List;
 import java.util.Optional;
 import uk.ac.ebi.embl.fastareader.SequenceFileFormat;
@@ -28,6 +29,16 @@ public class SequenceReaderWrapper implements AutoCloseable, SequenceFormatReade
 
     public SequenceReaderWrapper(File sequenceFile) throws Exception {
         this.sequenceReader = new SequenceReader(sequenceFile);
+    }
+
+    public SequenceReaderWrapper(
+            File file, SequenceAlphabet sequenceAlphabet, HashMap<Long, SequenceIndex> sequenceIndexesMap)
+            throws Exception {
+        if (sequenceIndexesMap.size() != 1 && !sequenceIndexesMap.keySet().contains(precodedId)) {
+            throw new IllegalArgumentException(
+                    "Sequence files must have exactly one entry which should be indexed with " + precodedId + " .");
+        }
+        this.sequenceReader = new SequenceReader(file, sequenceAlphabet, sequenceIndexesMap.get(0L));
     }
 
     @Override

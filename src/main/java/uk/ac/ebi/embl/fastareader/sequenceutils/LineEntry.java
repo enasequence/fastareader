@@ -10,13 +10,21 @@
  */
 package uk.ac.ebi.embl.fastareader.sequenceutils;
 
+import com.fasterxml.jackson.annotation.JsonCreator;
+import com.fasterxml.jackson.annotation.JsonProperty;
+
 public final class LineEntry {
     public long baseStart; // 1-based, inclusive
     public long baseEnd; // 1-based, inclusive
     public long byteStart; // absolute byte offset of first base in this line
     public long byteEndExclusive; // absolute byte offset one past last base
 
-    public LineEntry(long baseStart, long baseEnd, long byteStart, long byteEndExclusive) {
+    @JsonCreator
+    public LineEntry(
+            @JsonProperty("baseStart") long baseStart,
+            @JsonProperty("baseEnd") long baseEnd,
+            @JsonProperty("byteStart") long byteStart,
+            @JsonProperty("byteEndExclusive") long byteEndExclusive) {
         this.baseStart = baseStart;
         this.baseEnd = baseEnd;
         this.byteStart = byteStart;
