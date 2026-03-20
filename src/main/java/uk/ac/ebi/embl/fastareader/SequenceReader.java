@@ -75,7 +75,7 @@ public class SequenceReader implements AutoCloseable {
     }
 
     /**
-     * Initializes Sequence reader, loading the sequenceIndex that was read with the provided alphabet.
+     * Initializes Sequence reader, loading the sequenceIndex that was previously read with the provided alphabet from the since unchanged file.
      * */
     public SequenceReader(File file, SequenceAlphabet sequenceAlphabet, SequenceIndex sequenceIndex)
             throws SequenceFileException, IOException {
