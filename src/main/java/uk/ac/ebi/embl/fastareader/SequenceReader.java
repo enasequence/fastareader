@@ -41,16 +41,14 @@ public class SequenceReader implements AutoCloseable {
 
     private InternalReader reader;
 
-    /** Returns file & the accompanying alphabet it's read with */
+    /** File & the accompanying alphabet it's read with */
     @Getter
     private File file;
-
     @Getter
-    private SequenceAlphabet alphabet;
+    private SequenceAlphabet sequenceAlphabet;
     /** Returns Sequence entry data */
     @Getter
     private SequenceStats stats;
-
     @Getter
     private SequenceIndex sequenceIndex;
 
@@ -63,13 +61,13 @@ public class SequenceReader implements AutoCloseable {
      * Initializes Sequence reader, skimming through the whole file right away.
      * Adds the option to define your own desired SequenceAlphabet and a list of tolerable characters in the sequence (usually eg. \n, \r)
      * */
-    public SequenceReader(File sequenceFile, SequenceAlphabet alphabet) throws SequenceFileException, IOException {
+    public SequenceReader(File sequenceFile, SequenceAlphabet sequenceAlphabet) throws SequenceFileException, IOException {
         this.file = Objects.requireNonNull(sequenceFile, "sequenceFile");
         checkIfUtf8(file);
 
         resetData();
-        this.alphabet = alphabet;
-        this.reader = new InternalReader(sequenceFile, this.alphabet, FILE_FORMAT);
+        this.sequenceAlphabet = sequenceAlphabet;
+        this.reader = new InternalReader(sequenceFile, this.sequenceAlphabet, FILE_FORMAT);
 
         loadSequence();
     }
@@ -84,8 +82,8 @@ public class SequenceReader implements AutoCloseable {
         checkIfUtf8(file);
 
         resetData();
-        this.alphabet = sequenceAlphabet;
-        this.reader = new InternalReader(file, this.alphabet, FILE_FORMAT);
+        this.sequenceAlphabet = sequenceAlphabet;
+        this.reader = new InternalReader(file, this.sequenceAlphabet, FILE_FORMAT);
 
         this.sequenceIndex = sequenceIndex;
         setUpSequenceStatsFromIndex();
@@ -147,7 +145,7 @@ public class SequenceReader implements AutoCloseable {
     public void openNewFile(File sequenceFile) throws SequenceFileException, IOException {
         close(); // if already open, close first
         this.file = Objects.requireNonNull(sequenceFile, "file");
-        reader = new InternalReader(sequenceFile, this.alphabet, FILE_FORMAT);
+        reader = new InternalReader(sequenceFile, this.sequenceAlphabet, FILE_FORMAT);
         checkIfUtf8(sequenceFile);
         loadSequence();
     }

@@ -54,7 +54,7 @@ public class SequenceReaderWrapper implements AutoCloseable, SequenceFormatReade
 
     @Override
     public SequenceAlphabet getSequenceAlphabet() {
-        return sequenceReader.getAlphabet();
+        return sequenceReader.getSequenceAlphabet();
     }
 
     @Override
@@ -110,7 +110,7 @@ public class SequenceReaderWrapper implements AutoCloseable, SequenceFormatReade
         return new SequenceFormatReaderDTO(
                 sequenceReader.getFile().toPath(),
                 sequenceReader.getSequenceFileFormat(),
-                sequenceReader.getAlphabet(),
+                sequenceReader.getSequenceAlphabet(),
                 indexHashMap,
                 null
         );
