@@ -16,12 +16,15 @@ public final class SequenceIndex {
 
     public long firstBaseByte; // -1 if empty
     public long lastBaseByte; // -1 if empty
-    public final List<LineEntry> lines;
+    public List<LineEntry> lines;
     public long nextHeaderByte; // byte offset of next '>' at line start, or fileSize (EOF)
     // Bases related counts
     public long startNBasesCount;
     public long endNBasesCount;
     public Map<Character, Long> caseInsensitiveBaseCount;
+
+    /** Jackson needs this for JSON->OBJECT conversion **/
+    public SequenceIndex() {}
 
     /*** A constructor that is only used by the SequenceIndexBuilder before it counts the actual characters and builds the full index. ***/
     SequenceIndex(
@@ -41,6 +44,18 @@ public final class SequenceIndex {
         this.nextHeaderByte = nextHeader;
         this.caseInsensitiveBaseCount = new HashMap<>();
         mapAllowedCharacters(baseCounts, baseChars);
+    }
+
+    /** Copy constructor **/
+    public SequenceIndex(SequenceIndex other) {
+        this.firstBaseByte = other.firstBaseByte;
+        this.lastBaseByte = other.lastBaseByte;
+        this.nextHeaderByte = other.nextHeaderByte;
+        this.startNBasesCount = other.startNBasesCount;
+        this.endNBasesCount = other.endNBasesCount;
+        this.caseInsensitiveBaseCount =
+                other.caseInsensitiveBaseCount != null ? new HashMap<>(other.caseInsensitiveBaseCount) : null;
+        this.lines = other.lines != null ? new ArrayList<>(other.lines) : null;
     }
 
     private void mapAllowedCharacters(long[] baseCounts, List<Character> allowedCanonicalChars) {

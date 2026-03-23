@@ -10,9 +10,6 @@
  */
 package uk.ac.ebi.embl.fastareader.api;
 
-import static uk.ac.ebi.embl.fastareader.SequenceFileFormat.FASTA;
-import static uk.ac.ebi.embl.fastareader.SequenceFileFormat.PLAIN_SEQUENCE;
-
 import java.io.File;
 import java.nio.file.Files;
 import java.nio.file.Path;
@@ -131,12 +128,16 @@ public class SequenceFormatReaderFactory {
         switch (dto.sequenceFileFormat) {
             case FASTA:
                 return new FastaReader(
-                        filePath.toFile(), dto.sequenceAlphabet, dto.sequenceIndexesMap, dto.headerLines);
+                        filePath.toFile(),
+                        new SequenceAlphabet(dto.sequenceAlphabetSettings),
+                        dto.sequenceIndexesMap,
+                        dto.headerLines);
             case PLAIN_SEQUENCE:
                 if (dto.headerLines != null && !dto.headerLines.isEmpty()) {
                     throw new IllegalArgumentException("Header lines are not supported");
                 }
-                return new SequenceReaderWrapper(filePath.toFile(), dto.sequenceAlphabet, dto.sequenceIndexesMap);
+                return new SequenceReaderWrapper(
+                        filePath.toFile(), new SequenceAlphabet(dto.sequenceAlphabetSettings), dto.sequenceIndexesMap);
             default:
                 throw new IllegalArgumentException("Unrecognized sequence format: " + dto.sequenceFileFormat
                         + ". Allowed values: " + SequenceFileFormat.describe());

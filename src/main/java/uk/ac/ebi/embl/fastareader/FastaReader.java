@@ -210,11 +210,13 @@ public final class FastaReader implements AutoCloseable, SequenceFormatReader {
     @Override
     public SequenceInfoDTO exportReaderSettings() {
         SequenceInfoDTO dto = new SequenceInfoDTO();
+        // immutable values
         dto.filePath = getFile().toPath();
         dto.sequenceFileFormat = getSequenceFileFormat();
-        dto.sequenceAlphabet = getAlphabet();
-        dto.sequenceIndexesMap = sequenceIndexesMap;
-        dto.headerLines = headerLinesMap;
+        dto.sequenceAlphabetSettings = getAlphabet().exportAlphabetSettings();
+        // shallow copies of mutable objects
+        dto.sequenceIndexesMap = new HashMap<>(sequenceIndexesMap);
+        dto.headerLines = headerLinesMap != null ? new HashMap<>(headerLinesMap) : null;
         return dto;
     }
 

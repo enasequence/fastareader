@@ -111,14 +111,15 @@ public class SequenceReaderWrapper implements AutoCloseable, SequenceFormatReade
 
     @Override
     public SequenceInfoDTO exportReaderSettings() {
-        var indexHashMap = new HashMap<Long, SequenceIndex>();
-        indexHashMap.put(precodedId, sequenceReader.getSequenceIndex());
+        SequenceIndex indexCopy = new SequenceIndex(sequenceReader.getSequenceIndex()); // deep copy
+        // requires copy constructor on SequenceIndex
 
         SequenceInfoDTO dto = new SequenceInfoDTO();
         dto.filePath = sequenceReader.getFile().toPath();
         dto.sequenceFileFormat = sequenceReader.getSequenceFileFormat();
-        dto.sequenceAlphabet = sequenceReader.getSequenceAlphabet();
-        dto.sequenceIndexesMap = indexHashMap;
+        dto.sequenceAlphabetSettings = sequenceReader.getSequenceAlphabet().exportAlphabetSettings();
+        dto.sequenceIndexesMap = new HashMap<>();
+        dto.sequenceIndexesMap.put(precodedId, indexCopy);
         dto.headerLines = null; // null for PLAIN_SEQUENCE format
         return dto;
     }

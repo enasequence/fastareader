@@ -14,7 +14,7 @@ import com.fasterxml.jackson.annotation.JsonIgnoreProperties;
 import java.nio.file.Path;
 import java.util.HashMap;
 import uk.ac.ebi.embl.fastareader.SequenceFileFormat;
-import uk.ac.ebi.embl.fastareader.sequenceutils.SequenceAlphabet;
+import uk.ac.ebi.embl.fastareader.sequenceutils.SequenceAlphabetSettings;
 import uk.ac.ebi.embl.fastareader.sequenceutils.SequenceIndex;
 
 @JsonIgnoreProperties(ignoreUnknown = true)
@@ -22,7 +22,7 @@ public class SequenceInfoDTO {
 
     public Path filePath;
     public SequenceFileFormat sequenceFileFormat;
-    public SequenceAlphabet sequenceAlphabet;
+    public SequenceAlphabetSettings sequenceAlphabetSettings;
     public HashMap<Long, SequenceIndex> sequenceIndexesMap;
     public HashMap<Long, String> headerLines;
 }

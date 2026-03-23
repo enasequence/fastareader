@@ -10,38 +10,24 @@
  */
 package uk.ac.ebi.embl.fastareader.sequenceutils;
 
-import com.fasterxml.jackson.annotation.JsonCreator;
-import com.fasterxml.jackson.annotation.JsonProperty;
 import java.util.ArrayList;
 import java.util.Collections;
 import java.util.List;
-import lombok.Getter;
 
 public final class SequenceAlphabet {
     private static final byte N_UPPER = (byte) 'N'; // IUPAC defined any character
-
-    @Getter
     private final boolean[] allowed = new boolean[128];
-
-    @Getter
     private final boolean[] specialChars = new boolean[128];
+    private final SequenceAlphabetSettings settings;
 
-    @JsonProperty("chars")
-    private final String nucleotideString;
+    public SequenceAlphabet(String nucleotideString, String specialCharsString) {
+        this.settings = new SequenceAlphabetSettings(nucleotideString, specialCharsString);
+        setupAsciiArrays();
+    }
 
-    @JsonProperty("specialChars")
-    private final String specialCharsString;
-
-    @JsonCreator
-    public SequenceAlphabet(
-            @JsonProperty("chars") String nucleotideString, @JsonProperty("specialChars") String specialCharsString) {
-        this.nucleotideString = nucleotideString;
-        this.specialCharsString = specialCharsString;
-
-        for (char c : nucleotideString.toCharArray()) if (c < 128) allowed[c] = true;
-        allowed['>'] = false;
-
-        for (char c : specialCharsString.toCharArray()) if (c < 128) this.specialChars[c] = true;
+    public SequenceAlphabet(SequenceAlphabetSettings settings) {
+        this.settings = settings;
+        setupAsciiArrays();
     }
 
     /** Fast ASCII check for is it an allowed char. */
@@ -66,7 +52,7 @@ public final class SequenceAlphabet {
     }
 
     public static SequenceAlphabet defaultNucleotideAlphabet() {
-        return new SequenceAlphabet("ACGTRYSWKMBDHVNacgtryswkmbdhvn", "\n\r");
+        return new SequenceAlphabet(new SequenceAlphabetSettings("ACGTRYSWKMBDHVNacgtryswkmbdhvn", "\n\r"));
     }
 
     /** Returns allowed bases as uppercase, de-duplicated (e.g., 'A' not both 'A' and 'a'). */
@@ -100,5 +86,16 @@ public final class SequenceAlphabet {
 
         sb.append("]");
         return sb.toString();
+    }
+
+    public SequenceAlphabetSettings exportAlphabetSettings() {
+        return new SequenceAlphabetSettings(settings.chars(), settings.specialChars());
+    }
+
+    private void setupAsciiArrays() {
+        for (char c : this.settings.chars().toCharArray()) if (c < 128) allowed[c] = true;
+        allowed['>'] = false;
+
+        for (char c : this.settings.specialChars().toCharArray()) if (c < 128) this.specialChars[c] = true;
     }
 }

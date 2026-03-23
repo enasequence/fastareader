@@ -18,6 +18,9 @@ public final class LineEntry {
     public long byteStart; // absolute byte offset of first base in this line
     public long byteEndExclusive; // absolute byte offset one past last base
 
+    /** Jackson needs this for JSON->OBJECT conversion **/
+    public LineEntry() {}
+
     public LineEntry(long baseStart, long baseEnd, long byteStart, long byteEndExclusive) {
         this.baseStart = baseStart;
         this.baseEnd = baseEnd;
