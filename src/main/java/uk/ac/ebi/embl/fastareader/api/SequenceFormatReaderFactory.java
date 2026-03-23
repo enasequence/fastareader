@@ -100,7 +100,6 @@ public class SequenceFormatReaderFactory {
         return new SequenceReaderWrapper(sequenceFile);
     }
 
-
     /**
      * Opens a reader for a plain (single-record) sequence submission.
      *
@@ -114,10 +113,10 @@ public class SequenceFormatReaderFactory {
      * @throws Exception if the file cannot be opened, parsed, or validated (e.g. not UTF-8, wrong format,
      *                   empty file, more than one record, I/O errors)
      */
-    public static SequenceFormatReader readPlainSequence(File sequenceFile, SequenceAlphabet alphabet) throws Exception {
+    public static SequenceFormatReader readPlainSequence(File sequenceFile, SequenceAlphabet alphabet)
+            throws Exception {
         return new SequenceReaderWrapper(sequenceFile, alphabet);
     }
-
 
     /**
      * Opens an appropriate reader from a {@link SequenceInfoDTO}.

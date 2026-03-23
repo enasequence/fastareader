@@ -15,7 +15,6 @@ import java.io.IOException;
 import java.io.Reader;
 import java.util.*;
 import java.util.stream.Collectors;
-
 import lombok.Getter;
 import lombok.Setter;
 import uk.ac.ebi.embl.fastareader.api.SequenceFormatReader;
@@ -100,7 +99,7 @@ public final class FastaReader implements AutoCloseable, SequenceFormatReader {
         this.reader = new InternalReader(fastaFile, this.alphabet, FILE_FORMAT);
 
         this.orderedIds = indexes.keySet().stream()
-                .sorted() //sort by ascending
+                .sorted() // sort by ascending
                 .collect(Collectors.toList());
 
         this.sequenceIndexesMap = indexes;
