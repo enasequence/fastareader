@@ -100,6 +100,25 @@ public class SequenceFormatReaderFactory {
         return new SequenceReaderWrapper(sequenceFile);
     }
 
+
+    /**
+     * Opens a reader for a plain (single-record) sequence submission.
+     *
+     * <p>This uses a wrapper {@link SequenceReaderWrapper} which enables interoperability in case both FASTA, plain sequences and/or other formats are ingested simoultaneously.
+     * As such, the sequence record is addressed with the id 0 (long). The headerline string is assumed to be non-existent here, so
+     * metadata access via {@link SequenceFormatReader#getHeaderline(long)} will return an empty optional value,
+     * which can allready be predicted by using the {@link SequenceFormatReader#getSequenceFileFormat()} and judgement on whether the entry contains any metadata.</p>
+     *
+     * @param sequenceFile plain sequence file to open (must not be {@code null})
+     * @return a {@link SequenceReader} backed by the plain sequence file
+     * @throws Exception if the file cannot be opened, parsed, or validated (e.g. not UTF-8, wrong format,
+     *                   empty file, more than one record, I/O errors)
+     */
+    public static SequenceFormatReader readPlainSequence(File sequenceFile, SequenceAlphabet alphabet) throws Exception {
+        return new SequenceReaderWrapper(sequenceFile, alphabet);
+    }
+
+
     /**
      * Opens an appropriate reader from a {@link SequenceInfoDTO}.
      */

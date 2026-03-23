@@ -116,4 +116,18 @@ public final class SequenceIndex {
         }
         return Math.max(0, Math.min(ans, lines.size() - 1));
     }
+
+    @Override
+    public boolean equals(Object o) {
+        if (this == o) return true;
+        if (!(o instanceof SequenceIndex)) return false;
+        SequenceIndex that = (SequenceIndex) o;
+        return firstBaseByte == that.firstBaseByte
+                && lastBaseByte == that.lastBaseByte
+                && nextHeaderByte == that.nextHeaderByte
+                && startNBasesCount == that.startNBasesCount
+                && endNBasesCount == that.endNBasesCount
+                && Objects.equals(lines, that.lines)
+                && Objects.equals(caseInsensitiveBaseCount, that.caseInsensitiveBaseCount);
+    }
 }

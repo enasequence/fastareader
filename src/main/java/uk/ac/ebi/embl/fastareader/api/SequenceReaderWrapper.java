@@ -34,6 +34,10 @@ public class SequenceReaderWrapper implements AutoCloseable, SequenceFormatReade
         this.sequenceReader = new SequenceReader(sequenceFile);
     }
 
+    public SequenceReaderWrapper(File sequenceFile, SequenceAlphabet alphabet) throws SequenceFileException, IOException {
+        this.sequenceReader = new SequenceReader(sequenceFile, alphabet);
+    }
+
     public SequenceReaderWrapper(
             File file, SequenceAlphabet sequenceAlphabet, HashMap<Long, SequenceIndex> sequenceIndexesMap)
             throws SequenceFileException, IOException {
