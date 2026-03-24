@@ -18,12 +18,16 @@ public final class SequenceAlphabet {
     private static final byte N_UPPER = (byte) 'N'; // IUPAC defined any character
     private final boolean[] allowed = new boolean[128];
     private final boolean[] specialChars = new boolean[128];
+    private final SequenceAlphabetSettings settings;
 
-    public SequenceAlphabet(String chars, String specialChars) {
-        for (char c : chars.toCharArray()) if (c < 128) allowed[c] = true;
-        allowed['>'] = false;
+    public SequenceAlphabet(String nucleotideString, String specialCharsString) {
+        this.settings = new SequenceAlphabetSettings(nucleotideString, specialCharsString);
+        setupAsciiArrays();
+    }
 
-        for (char c : specialChars.toCharArray()) if (c < 128) this.specialChars[c] = true;
+    public SequenceAlphabet(SequenceAlphabetSettings settings) {
+        this.settings = settings;
+        setupAsciiArrays();
     }
 
     /** Fast ASCII check for is it an allowed char. */
@@ -48,7 +52,7 @@ public final class SequenceAlphabet {
     }
 
     public static SequenceAlphabet defaultNucleotideAlphabet() {
-        return new SequenceAlphabet("ACGTRYSWKMBDHVNacgtryswkmbdhvn", "\n\r");
+        return new SequenceAlphabet(new SequenceAlphabetSettings("ACGTRYSWKMBDHVNacgtryswkmbdhvn", "\n\r"));
     }
 
     /** Returns allowed bases as uppercase, de-duplicated (e.g., 'A' not both 'A' and 'a'). */
@@ -82,5 +86,16 @@ public final class SequenceAlphabet {
 
         sb.append("]");
         return sb.toString();
+    }
+
+    public SequenceAlphabetSettings exportAlphabetSettings() {
+        return new SequenceAlphabetSettings(settings.chars(), settings.specialChars());
+    }
+
+    private void setupAsciiArrays() {
+        for (char c : this.settings.chars().toCharArray()) if (c < 128) allowed[c] = true;
+        allowed['>'] = false;
+
+        for (char c : this.settings.specialChars().toCharArray()) if (c < 128) this.specialChars[c] = true;
     }
 }

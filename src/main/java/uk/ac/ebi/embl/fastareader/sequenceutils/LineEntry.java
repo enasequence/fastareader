@@ -10,11 +10,16 @@
  */
 package uk.ac.ebi.embl.fastareader.sequenceutils;
 
+import java.util.Objects;
+
 public final class LineEntry {
     public long baseStart; // 1-based, inclusive
     public long baseEnd; // 1-based, inclusive
     public long byteStart; // absolute byte offset of first base in this line
     public long byteEndExclusive; // absolute byte offset one past last base
+
+    /** Jackson needs this for JSON->OBJECT conversion **/
+    public LineEntry() {}
 
     public LineEntry(long baseStart, long baseEnd, long byteStart, long byteEndExclusive) {
         this.baseStart = baseStart;
@@ -30,4 +35,20 @@ public final class LineEntry {
     public long lengthBytes() {
         return byteEndExclusive - byteStart;
     } // ASCII: same as bases
+
+    @Override
+    public boolean equals(Object o) {
+        if (this == o) return true;
+        if (!(o instanceof LineEntry)) return false;
+        LineEntry that = (LineEntry) o;
+        return baseStart == that.baseStart
+                && baseEnd == that.baseEnd
+                && byteStart == that.byteStart
+                && byteEndExclusive == that.byteEndExclusive;
+    }
+
+    @Override
+    public int hashCode() {
+        return Objects.hash(baseStart, baseEnd, byteStart, byteEndExclusive);
+    }
 }

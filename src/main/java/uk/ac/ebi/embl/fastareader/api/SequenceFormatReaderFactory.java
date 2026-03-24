@@ -11,8 +11,12 @@
 package uk.ac.ebi.embl.fastareader.api;
 
 import java.io.File;
+import java.nio.file.Files;
+import java.nio.file.Path;
 import uk.ac.ebi.embl.fastareader.FastaReader;
+import uk.ac.ebi.embl.fastareader.SequenceFileFormat;
 import uk.ac.ebi.embl.fastareader.SequenceReader;
+import uk.ac.ebi.embl.fastareader.api.rereading.SequenceInfoDTO;
 import uk.ac.ebi.embl.fastareader.sequenceutils.SequenceAlphabet;
 
 /**
@@ -25,11 +29,9 @@ import uk.ac.ebi.embl.fastareader.sequenceutils.SequenceAlphabet;
  * <h2>Supported submission types</h2>
  * <ul>
  *   <li><b>FASTA</b>: a FASTA file containing one or more entries. Each entry is addressable by
- *       its submission ID (parsed from the JSON header). Accession IDs may be supplied later via
- *       {@link SequenceReader#setAccessionIds(java.util.List)}.</li>
+ *       its fastaReader ID (first entry in the file has the id 0, second one has id 1, etc.).
  *   <li><b>PLAIN_SEQUENCE</b>: a single sequence file containing exactly one sequence record.
- *       The record is addressed by the provided accession ID. A {@link FastaHeader} may be provided
- *       separately (optional).</li>
+ *       The record is addressed by the id 0.
  * </ul>
  *
  * <h2>Resource management</h2>
@@ -93,5 +95,52 @@ public class SequenceFormatReaderFactory {
      */
     public static SequenceFormatReader readPlainSequence(File sequenceFile) throws Exception {
         return new SequenceReaderWrapper(sequenceFile);
+    }
+
+    /**
+     * Opens a reader for a plain (single-record) sequence submission.
+     *
+     * <p>This uses a wrapper {@link SequenceReaderWrapper} which enables interoperability in case both FASTA, plain sequences and/or other formats are ingested simoultaneously.
+     * As such, the sequence record is addressed with the id 0 (long). The headerline string is assumed to be non-existent here, so
+     * metadata access via {@link SequenceFormatReader#getHeaderline(long)} will return an empty optional value,
+     * which can allready be predicted by using the {@link SequenceFormatReader#getSequenceFileFormat()} and judgement on whether the entry contains any metadata.</p>
+     *
+     * @param sequenceFile plain sequence file to open (must not be {@code null})
+     * @return a {@link SequenceReader} backed by the plain sequence file
+     * @throws Exception if the file cannot be opened, parsed, or validated (e.g. not UTF-8, wrong format,
+     *                   empty file, more than one record, I/O errors)
+     */
+    public static SequenceFormatReader readPlainSequence(File sequenceFile, SequenceAlphabet alphabet)
+            throws Exception {
+        return new SequenceReaderWrapper(sequenceFile, alphabet);
+    }
+
+    /**
+     * Opens an appropriate reader from a {@link SequenceInfoDTO}.
+     */
+    public static SequenceFormatReader readBySequenceInfo(SequenceInfoDTO dto) throws Exception {
+        Path filePath = dto.filePath;
+
+        if (!Files.exists(filePath) || !Files.isRegularFile(filePath)) {
+            throw new IllegalArgumentException("Not a valid file: " + filePath);
+        }
+
+        switch (dto.sequenceFileFormat) {
+            case FASTA:
+                return new FastaReader(
+                        filePath.toFile(),
+                        new SequenceAlphabet(dto.sequenceAlphabetSettings),
+                        dto.sequenceIndexesMap,
+                        dto.headerLines);
+            case PLAIN_SEQUENCE:
+                if (dto.headerLines != null && !dto.headerLines.isEmpty()) {
+                    throw new IllegalArgumentException("Header lines are not supported");
+                }
+                return new SequenceReaderWrapper(
+                        filePath.toFile(), new SequenceAlphabet(dto.sequenceAlphabetSettings), dto.sequenceIndexesMap);
+            default:
+                throw new IllegalArgumentException("Unrecognized sequence format: " + dto.sequenceFileFormat
+                        + ". Allowed values: " + SequenceFileFormat.describe());
+        }
     }
 }

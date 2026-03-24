@@ -14,9 +14,11 @@ import java.io.File;
 import java.io.IOException;
 import java.io.Reader;
 import java.util.*;
+import java.util.stream.Collectors;
 import lombok.Getter;
 import lombok.Setter;
 import uk.ac.ebi.embl.fastareader.api.SequenceFormatReader;
+import uk.ac.ebi.embl.fastareader.api.rereading.SequenceInfoDTO;
 import uk.ac.ebi.embl.fastareader.encoding.Utf8Detector;
 import uk.ac.ebi.embl.fastareader.exception.FastaFileException;
 import uk.ac.ebi.embl.fastareader.exception.SequenceReadingException;
@@ -79,12 +81,48 @@ public final class FastaReader implements AutoCloseable, SequenceFormatReader {
         loadEntries();
     }
 
-    // ---------------------------- queries ----------------------------
+    /**
+     * Initializes FASTA reader, loading the sequenceIndexes that were read with the provided alphabet
+     * If you want to read the headerlines again, they can be passed in using the headerLines parameter, or that field can be null if you don't wish to read them.
+     * */
+    public FastaReader(
+            File fastaFile,
+            SequenceAlphabet alphabet,
+            HashMap<Long, SequenceIndex> indexes,
+            HashMap<Long, String> headerLines)
+            throws FastaFileException, IOException {
+        this.file = Objects.requireNonNull(fastaFile, "sequenceFile");
+        checkIfUtf8(file);
+
+        resetData();
+        this.alphabet = alphabet;
+        this.reader = new InternalReader(fastaFile, this.alphabet, FILE_FORMAT);
+
+        this.orderedIds = indexes.keySet().stream()
+                .sorted() // sort by ascending
+                .collect(Collectors.toList());
+
+        this.sequenceIndexesMap = indexes;
+        setUpSequenceStatsFromIndexes();
+        this.headerLinesMap = headerLines == null ? new HashMap<>() : headerLines;
+    }
 
     @Override
     public SequenceFileFormat getSequenceFileFormat() {
         return FILE_FORMAT;
     }
+
+    @Override
+    public File getFile() {
+        return file;
+    }
+
+    @Override
+    public SequenceAlphabet getSequenceAlphabet() {
+        return alphabet;
+    }
+
+    // ---------------------------- queries ----------------------------
 
     @Override
     public Optional<String> getHeaderline(long id) {
@@ -169,6 +207,19 @@ public final class FastaReader implements AutoCloseable, SequenceFormatReader {
         loadEntries();
     }
 
+    @Override
+    public SequenceInfoDTO exportReaderSettings() {
+        SequenceInfoDTO dto = new SequenceInfoDTO();
+        // immutable values
+        dto.filePath = getFile().toPath();
+        dto.sequenceFileFormat = getSequenceFileFormat();
+        dto.sequenceAlphabetSettings = getAlphabet().exportAlphabetSettings();
+        // shallow copies of mutable objects
+        dto.sequenceIndexesMap = new HashMap<>(sequenceIndexesMap);
+        dto.headerLines = headerLinesMap != null ? new HashMap<>(headerLinesMap) : null;
+        return dto;
+    }
+
     /** Close the reader. Safe to call multiple times. */
     @Override
     public void close() throws IOException {
@@ -214,19 +265,24 @@ public final class FastaReader implements AutoCloseable, SequenceFormatReader {
             orderedIds.add(currentId);
             headerLinesMap.put(currentId, entry.getHeaderLine());
             sequenceIndexesMap.put(currentId, entry.getSequenceIndex());
-
-            long adjustedBases = entry.sequenceIndex.totalBases()
-                    - entry.sequenceIndex.startNBasesCount
-                    - entry.sequenceIndex.endNBasesCount;
-            var sequenceStats = new SequenceStats(
-                    entry.sequenceIndex.totalBases(),
-                    adjustedBases,
-                    entry.sequenceIndex.startNBasesCount,
-                    entry.sequenceIndex.endNBasesCount,
-                    entry.sequenceIndex.caseInsensitiveBaseCount);
-            sequenceStatsMap.put(currentId, sequenceStats);
-
             currentId++;
+        }
+
+        setUpSequenceStatsFromIndexes();
+    }
+
+    private void setUpSequenceStatsFromIndexes() {
+        for (var fastaReaderId : sequenceIndexesMap.keySet()) {
+            var sequenceIndex = sequenceIndexesMap.get(fastaReaderId);
+            long adjustedBases =
+                    sequenceIndex.totalBases() - sequenceIndex.startNBasesCount - sequenceIndex.endNBasesCount;
+            var sequenceStats = new SequenceStats(
+                    sequenceIndex.totalBases(),
+                    adjustedBases,
+                    sequenceIndex.startNBasesCount,
+                    sequenceIndex.endNBasesCount,
+                    sequenceIndex.caseInsensitiveBaseCount);
+            sequenceStatsMap.put(fastaReaderId, sequenceStats);
         }
     }
 

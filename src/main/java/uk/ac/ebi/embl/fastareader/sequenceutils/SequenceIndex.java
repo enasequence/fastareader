@@ -16,14 +16,18 @@ public final class SequenceIndex {
 
     public long firstBaseByte; // -1 if empty
     public long lastBaseByte; // -1 if empty
-    private final List<LineEntry> lines;
+    public List<LineEntry> lines;
     public long nextHeaderByte; // byte offset of next '>' at line start, or fileSize (EOF)
-    // N bases related counts
+    // Bases related counts
     public long startNBasesCount;
     public long endNBasesCount;
     public Map<Character, Long> caseInsensitiveBaseCount;
 
-    public SequenceIndex(
+    /** Jackson needs this for JSON->OBJECT conversion **/
+    public SequenceIndex() {}
+
+    /*** A constructor that is only used by the SequenceIndexBuilder before it counts the actual characters and builds the full index. ***/
+    SequenceIndex(
             long firstBaseByte,
             long startNBasesCount,
             long lastBaseByte,
@@ -40,6 +44,18 @@ public final class SequenceIndex {
         this.nextHeaderByte = nextHeader;
         this.caseInsensitiveBaseCount = new HashMap<>();
         mapAllowedCharacters(baseCounts, baseChars);
+    }
+
+    /** Copy constructor **/
+    public SequenceIndex(SequenceIndex other) {
+        this.firstBaseByte = other.firstBaseByte;
+        this.lastBaseByte = other.lastBaseByte;
+        this.nextHeaderByte = other.nextHeaderByte;
+        this.startNBasesCount = other.startNBasesCount;
+        this.endNBasesCount = other.endNBasesCount;
+        this.caseInsensitiveBaseCount =
+                other.caseInsensitiveBaseCount != null ? new HashMap<>(other.caseInsensitiveBaseCount) : null;
+        this.lines = other.lines != null ? new ArrayList<>(other.lines) : null;
     }
 
     private void mapAllowedCharacters(long[] baseCounts, List<Character> allowedCanonicalChars) {
@@ -114,5 +130,19 @@ public final class SequenceIndex {
             ans = lo;
         }
         return Math.max(0, Math.min(ans, lines.size() - 1));
+    }
+
+    @Override
+    public boolean equals(Object o) {
+        if (this == o) return true;
+        if (!(o instanceof SequenceIndex)) return false;
+        SequenceIndex that = (SequenceIndex) o;
+        return firstBaseByte == that.firstBaseByte
+                && lastBaseByte == that.lastBaseByte
+                && nextHeaderByte == that.nextHeaderByte
+                && startNBasesCount == that.startNBasesCount
+                && endNBasesCount == that.endNBasesCount
+                && Objects.equals(lines, that.lines)
+                && Objects.equals(caseInsensitiveBaseCount, that.caseInsensitiveBaseCount);
     }
 }

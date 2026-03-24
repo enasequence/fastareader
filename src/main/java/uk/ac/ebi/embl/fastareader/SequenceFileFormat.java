@@ -10,15 +10,44 @@
  */
 package uk.ac.ebi.embl.fastareader;
 
+import com.fasterxml.jackson.annotation.JsonCreator;
+import com.fasterxml.jackson.annotation.JsonValue;
+import java.util.Arrays;
+import java.util.stream.Collectors;
+
 public enum SequenceFileFormat {
     /**
      * Header on, meaning the expected file format is a generic FASTA format
      * with multiple sequences, with a header starting with '>' before each sequence
      */
-    FASTA,
+    FASTA("FASTA"),
     /**
      * The expected file format is a raw sequence with nucleotides (ACGTCGG...) in the file,
      * with nothing else - no metadata or extra information.
      */
-    PLAIN_SEQUENCE
+    PLAIN_SEQUENCE("PLAIN_SEQUENCE");
+
+    private final String value;
+
+    SequenceFileFormat(String value) {
+        this.value = value;
+    }
+
+    @JsonValue
+    public String getValue() {
+        return value;
+    }
+
+    @JsonCreator
+    public static SequenceFileFormat fromJson(String value) {
+        return Arrays.stream(values())
+                .filter(format -> format.value.equalsIgnoreCase(value))
+                .findFirst()
+                .orElseThrow(() -> new IllegalArgumentException(
+                        "Unknown SequenceFileFormat: '" + value + "'. Allowed values: " + describe()));
+    }
+
+    public static String describe() {
+        return Arrays.stream(values()).map(format -> format.value).collect(Collectors.joining(", "));
+    }
 }
