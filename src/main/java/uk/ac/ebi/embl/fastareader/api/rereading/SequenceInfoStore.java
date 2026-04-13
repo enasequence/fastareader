@@ -20,12 +20,12 @@ public class SequenceInfoStore {
 
     private static final ObjectMapper MAPPER = new ObjectMapper();
 
-    public void write(List<SequenceInfoDTO> infos, Path outputPath) throws IOException {
+    public static void write(List<SequenceInfoDTO> infos, Path outputPath) throws IOException {
         Files.createDirectories(outputPath.getParent());
         MAPPER.writerWithDefaultPrettyPrinter().writeValue(outputPath.toFile(), infos);
     }
 
-    public List<SequenceInfoDTO> read(Path inputPath) throws IOException {
+    public static List<SequenceInfoDTO> read(Path inputPath) throws IOException {
         if (!Files.exists(inputPath) || !Files.isRegularFile(inputPath)) {
             throw new IllegalArgumentException("Not a valid file: " + inputPath);
         }
