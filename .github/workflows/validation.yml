@@ -7,6 +7,9 @@ on:
 jobs:
   validate:
     name: Run Spotless + Tests
+    permissions:
+      contents: read
+      pull-requests: write
     runs-on: ubuntu-latest
     steps:
       - name: Checkout code
