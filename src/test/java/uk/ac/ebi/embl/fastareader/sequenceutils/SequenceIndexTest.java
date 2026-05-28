@@ -47,7 +47,7 @@ public class SequenceIndexTest {
                 114, // random value i put in, no meaning rn
                 /*totalNBases*/ new long[128],
                 new ArrayList<>(),
-                gapRegions); // random value i put in, no meaning rn
+                gapRegions);
     }
 
     @Test

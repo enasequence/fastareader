@@ -117,8 +117,8 @@ public final class SequenceIndex {
     }
 
     public List<GapRegion> gapRegionsView() {
-        if (gapRegions == null) return Collections.emptyList();
-        return Collections.unmodifiableList(gapRegions);
+        if (gapRegions == null || gapRegions.isEmpty()) return Collections.emptyList();
+        return List.copyOf(gapRegions);
     }
 
     public List<GapRegion> gapRegionsView(SequenceRangeOption option) {
@@ -234,7 +234,7 @@ public final class SequenceIndex {
                 && startNBasesCount == that.startNBasesCount
                 && endNBasesCount == that.endNBasesCount
                 && Objects.equals(lines, that.lines)
-                && Objects.equals(gapRegionsView(), that.gapRegionsView())
+                && Objects.equals(gapRegions, that.gapRegions)
                 && Objects.equals(caseInsensitiveBaseCount, that.caseInsensitiveBaseCount);
     }
 
@@ -247,7 +247,7 @@ public final class SequenceIndex {
                 startNBasesCount,
                 endNBasesCount,
                 lines,
-                gapRegionsView(),
+                gapRegions,
                 caseInsensitiveBaseCount);
     }
 }
