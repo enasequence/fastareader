@@ -137,20 +137,30 @@ public final class FastaReader implements AutoCloseable, SequenceFormatReader {
 
     @Override
     public List<GapRegion> getGapRegions(long id) {
+        return getGapRegions(id, SequenceRangeOption.WHOLE_SEQUENCE);
+    }
+
+    @Override
+    public List<GapRegion> getGapRegions(long id, SequenceRangeOption option) {
         SequenceIndex index = sequenceIndexesMap.get(id);
         if (index == null) {
             throw new IllegalArgumentException("No sequence index found for fasta reader Id " + id);
         }
-        return index.gapRegionsView();
+        return index.gapRegionsView(option);
     }
 
     @Override
     public List<GapRegion> getGapRegions(long id, long fromBase, long toBase) {
+        return getGapRegions(id, fromBase, toBase, SequenceRangeOption.WHOLE_SEQUENCE);
+    }
+
+    @Override
+    public List<GapRegion> getGapRegions(long id, long fromBase, long toBase, SequenceRangeOption option) {
         SequenceIndex index = sequenceIndexesMap.get(id);
         if (index == null) {
             throw new IllegalArgumentException("No sequence index found for fasta reader Id " + id);
         }
-        return index.gapRegionsView(fromBase, toBase);
+        return index.gapRegionsView(fromBase, toBase, option);
     }
 
     /**

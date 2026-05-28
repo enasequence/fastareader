@@ -141,11 +141,19 @@ public class SequenceReader implements AutoCloseable {
     }
 
     public List<GapRegion> getGapRegions() {
-        return sequenceIndex.gapRegionsView();
+        return getGapRegions(SequenceRangeOption.WHOLE_SEQUENCE);
+    }
+
+    public List<GapRegion> getGapRegions(SequenceRangeOption option) {
+        return sequenceIndex.gapRegionsView(option);
     }
 
     public List<GapRegion> getGapRegions(long fromBase, long toBase) {
-        return sequenceIndex.gapRegionsView(fromBase, toBase);
+        return getGapRegions(fromBase, toBase, SequenceRangeOption.WHOLE_SEQUENCE);
+    }
+
+    public List<GapRegion> getGapRegions(long fromBase, long toBase, SequenceRangeOption option) {
+        return sequenceIndex.gapRegionsView(fromBase, toBase, option);
     }
 
     // ---------------------------- interactions with the reader ----------------------------

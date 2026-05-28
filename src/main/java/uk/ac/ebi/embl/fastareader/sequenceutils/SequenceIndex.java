@@ -11,6 +11,7 @@
 package uk.ac.ebi.embl.fastareader.sequenceutils;
 
 import java.util.*;
+import uk.ac.ebi.embl.fastareader.SequenceRangeOption;
 
 public final class SequenceIndex {
 
@@ -120,7 +121,42 @@ public final class SequenceIndex {
         return Collections.unmodifiableList(gapRegions);
     }
 
+    public List<GapRegion> gapRegionsView(SequenceRangeOption option) {
+        switch (option) {
+            case WHOLE_SEQUENCE:
+                return gapRegionsView();
+            case WITHOUT_EDGE_N_BASES:
+                long trimmedTotal = totalBasesExcludingEdgeNBases();
+                if (trimmedTotal == 0) return Collections.emptyList();
+                return gapRegionsView(1, trimmedTotal, option);
+            default:
+                throw new IllegalStateException("Unknown option " + option);
+        }
+    }
+
     public List<GapRegion> gapRegionsView(long fromBase, long toBase) {
+        return gapRegionsView(fromBase, toBase, SequenceRangeOption.WHOLE_SEQUENCE);
+    }
+
+    public List<GapRegion> gapRegionsView(long fromBase, long toBase, SequenceRangeOption option) {
+        switch (option) {
+            case WHOLE_SEQUENCE:
+                return gapRegionsViewIncludingEdgeNBases(fromBase, toBase);
+            case WITHOUT_EDGE_N_BASES:
+                long trimmedTotal = totalBasesExcludingEdgeNBases();
+                if (fromBase < 1 || toBase < fromBase || toBase > trimmedTotal) {
+                    throw new IllegalArgumentException("bad base range: " + fromBase + ".." + toBase);
+                }
+                long actualFromBase = startNBasesCount + fromBase;
+                long actualToBase = startNBasesCount + toBase;
+                return shiftGapRegions(
+                        gapRegionsViewIncludingEdgeNBases(actualFromBase, actualToBase), -startNBasesCount);
+            default:
+                throw new IllegalStateException("Unknown option " + option);
+        }
+    }
+
+    private List<GapRegion> gapRegionsViewIncludingEdgeNBases(long fromBase, long toBase) {
         long total = totalBases();
         if (fromBase < 1 || toBase < fromBase || toBase > total) {
             throw new IllegalArgumentException("bad base range: " + fromBase + ".." + toBase);
@@ -133,6 +169,15 @@ public final class SequenceIndex {
             }
         }
         return Collections.unmodifiableList(matches);
+    }
+
+    private static List<GapRegion> shiftGapRegions(List<GapRegion> gapRegions, long offset) {
+        if (gapRegions.isEmpty()) return Collections.emptyList();
+        List<GapRegion> shifted = new ArrayList<>(gapRegions.size());
+        for (GapRegion gapRegion : gapRegions) {
+            shifted.add(new GapRegion(gapRegion.startBase + offset, gapRegion.endBase + offset));
+        }
+        return Collections.unmodifiableList(shifted);
     }
 
     public ByteSpan byteSpanForBaseRangeIncludingEdgeNBases(long fromBase, long toBase) {

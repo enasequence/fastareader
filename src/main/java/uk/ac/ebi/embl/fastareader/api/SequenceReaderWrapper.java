@@ -83,14 +83,24 @@ public class SequenceReaderWrapper implements AutoCloseable, SequenceFormatReade
 
     @Override
     public List<GapRegion> getGapRegions(long id) {
+        return getGapRegions(id, SequenceRangeOption.WHOLE_SEQUENCE);
+    }
+
+    @Override
+    public List<GapRegion> getGapRegions(long id, SequenceRangeOption option) {
         validateId(id);
-        return sequenceReader.getGapRegions();
+        return sequenceReader.getGapRegions(option);
     }
 
     @Override
     public List<GapRegion> getGapRegions(long id, long fromBase, long toBase) {
+        return getGapRegions(id, fromBase, toBase, SequenceRangeOption.WHOLE_SEQUENCE);
+    }
+
+    @Override
+    public List<GapRegion> getGapRegions(long id, long fromBase, long toBase, SequenceRangeOption option) {
         validateId(id);
-        return sequenceReader.getGapRegions(fromBase, toBase);
+        return sequenceReader.getGapRegions(fromBase, toBase, option);
     }
 
     @Override

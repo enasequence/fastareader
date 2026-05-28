@@ -314,6 +314,22 @@ public class SequenceIndexBuilderTest {
     }
 
     @Test
+    void recordsGapRegionsAcrossLineBreaksAndTabsWithoutOffByOneErrors() throws Exception {
+        String sequence = "ACGTNN\t\n" + "NNNCGTN\n" + "NNACTGNN";
+        Path p = writeAscii(tempDir, "idx_gap_off_by_one.txt", sequence);
+
+        try (FileChannel ch = openRead(p)) {
+            SequenceAlphabet alphabet = new SequenceAlphabet("ACGTNacgtn", "\n\r\t");
+            SequenceIndexBuilder sib = new SequenceIndexBuilder(ch, alphabet, Optional.empty());
+
+            SequenceIndex idx = sib.buildFrom(0);
+
+            assertEquals(
+                    List.of(new GapRegion(5, 9), new GapRegion(13, 15), new GapRegion(20, 21)), idx.gapRegionsView());
+        }
+    }
+
+    @Test
     void doesNotTolerateBreaksWhenReadingContinuousSequence() throws Exception {
         String l1 = "NACG\n"; // leading N = 1
         String l2 = "N>NNN\n"; // middle line of Ns — must NOT affect start/end N counts
