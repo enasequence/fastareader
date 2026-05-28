@@ -23,6 +23,7 @@ import uk.ac.ebi.embl.fastareader.encoding.Utf8Detector;
 import uk.ac.ebi.embl.fastareader.exception.FastaFileException;
 import uk.ac.ebi.embl.fastareader.exception.SequenceReadingException;
 import uk.ac.ebi.embl.fastareader.sequenceutils.ByteSpan;
+import uk.ac.ebi.embl.fastareader.sequenceutils.GapRegion;
 import uk.ac.ebi.embl.fastareader.sequenceutils.SequenceAlphabet;
 import uk.ac.ebi.embl.fastareader.sequenceutils.SequenceIndex;
 
@@ -132,6 +133,24 @@ public final class FastaReader implements AutoCloseable, SequenceFormatReader {
     @Override
     public SequenceStats getStats(long id) {
         return sequenceStatsMap.get(id);
+    }
+
+    @Override
+    public List<GapRegion> getGapRegions(long id) {
+        SequenceIndex index = sequenceIndexesMap.get(id);
+        if (index == null) {
+            throw new IllegalArgumentException("No sequence index found for fasta reader Id " + id);
+        }
+        return index.gapRegionsView();
+    }
+
+    @Override
+    public List<GapRegion> getGapRegions(long id, long fromBase, long toBase) {
+        SequenceIndex index = sequenceIndexesMap.get(id);
+        if (index == null) {
+            throw new IllegalArgumentException("No sequence index found for fasta reader Id " + id);
+        }
+        return index.gapRegionsView(fromBase, toBase);
     }
 
     /**

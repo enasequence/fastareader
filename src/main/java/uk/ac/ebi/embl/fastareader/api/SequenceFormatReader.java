@@ -18,6 +18,7 @@ import uk.ac.ebi.embl.fastareader.SequenceFileFormat;
 import uk.ac.ebi.embl.fastareader.SequenceRangeOption;
 import uk.ac.ebi.embl.fastareader.SequenceStats;
 import uk.ac.ebi.embl.fastareader.api.rereading.SequenceInfoDTO;
+import uk.ac.ebi.embl.fastareader.sequenceutils.GapRegion;
 import uk.ac.ebi.embl.fastareader.sequenceutils.SequenceAlphabet;
 import uk.ac.ebi.embl.fastareader.sequenceutils.SequenceIndex;
 
@@ -86,6 +87,20 @@ public interface SequenceFormatReader extends AutoCloseable {
      * @throws IllegalArgumentException if the id does not exist or cannot be resolved
      */
     SequenceStats getStats(long id);
+
+    /**
+     * Returns contiguous N/n gap regions for the record, using 1-based inclusive base coordinates.
+     *
+     * @throws IllegalArgumentException if the id does not exist or cannot be resolved
+     */
+    List<GapRegion> getGapRegions(long id);
+
+    /**
+     * Returns contiguous N/n gap regions overlapping the requested 1-based inclusive base range.
+     *
+     * @throws IllegalArgumentException if the id does not exist or cannot be resolved, or the range is invalid
+     */
+    List<GapRegion> getGapRegions(long id, long fromBase, long toBase);
 
     /**
      * Returns a substring slice of the sequence as a String.

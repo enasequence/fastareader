@@ -21,6 +21,7 @@ public final class SequenceIndex {
     // Bases related counts
     public long startNBasesCount;
     public long endNBasesCount;
+    public List<GapRegion> gapRegions;
     public Map<Character, Long> caseInsensitiveBaseCount;
 
     /** Jackson needs this for JSON->OBJECT conversion **/
@@ -36,12 +37,36 @@ public final class SequenceIndex {
             long nextHeader,
             long[] baseCounts,
             List<Character> baseChars) {
+        this(
+                firstBaseByte,
+                startNBasesCount,
+                lastBaseByte,
+                endNBasesCount,
+                lines,
+                nextHeader,
+                baseCounts,
+                baseChars,
+                Collections.emptyList());
+    }
+
+    /*** A constructor used by the SequenceIndexBuilder once it has counted bases and gap regions. ***/
+    SequenceIndex(
+            long firstBaseByte,
+            long startNBasesCount,
+            long lastBaseByte,
+            long endNBasesCount,
+            List<LineEntry> lines,
+            long nextHeader,
+            long[] baseCounts,
+            List<Character> baseChars,
+            List<GapRegion> gapRegions) {
         this.firstBaseByte = firstBaseByte;
         this.startNBasesCount = startNBasesCount;
         this.lastBaseByte = lastBaseByte;
         this.endNBasesCount = endNBasesCount;
         this.lines = new ArrayList<>(lines);
         this.nextHeaderByte = nextHeader;
+        this.gapRegions = new ArrayList<>(gapRegions);
         this.caseInsensitiveBaseCount = new HashMap<>();
         mapAllowedCharacters(baseCounts, baseChars);
     }
@@ -56,6 +81,7 @@ public final class SequenceIndex {
         this.caseInsensitiveBaseCount =
                 other.caseInsensitiveBaseCount != null ? new HashMap<>(other.caseInsensitiveBaseCount) : null;
         this.lines = other.lines != null ? new ArrayList<>(other.lines) : null;
+        this.gapRegions = other.gapRegions != null ? new ArrayList<>(other.gapRegions) : new ArrayList<>();
     }
 
     private void mapAllowedCharacters(long[] baseCounts, List<Character> allowedCanonicalChars) {
@@ -87,6 +113,26 @@ public final class SequenceIndex {
     public long totalBasesExcludingEdgeNBases() {
         long bases = totalBases() - endNBasesCount - startNBasesCount;
         return Math.max(0, bases);
+    }
+
+    public List<GapRegion> gapRegionsView() {
+        if (gapRegions == null) return Collections.emptyList();
+        return Collections.unmodifiableList(gapRegions);
+    }
+
+    public List<GapRegion> gapRegionsView(long fromBase, long toBase) {
+        long total = totalBases();
+        if (fromBase < 1 || toBase < fromBase || toBase > total) {
+            throw new IllegalArgumentException("bad base range: " + fromBase + ".." + toBase);
+        }
+        if (gapRegions == null || gapRegions.isEmpty()) return Collections.emptyList();
+        List<GapRegion> matches = new ArrayList<>();
+        for (GapRegion gapRegion : gapRegions) {
+            if (gapRegion.overlaps(fromBase, toBase)) {
+                matches.add(gapRegion);
+            }
+        }
+        return Collections.unmodifiableList(matches);
     }
 
     public ByteSpan byteSpanForBaseRangeIncludingEdgeNBases(long fromBase, long toBase) {
@@ -143,6 +189,7 @@ public final class SequenceIndex {
                 && startNBasesCount == that.startNBasesCount
                 && endNBasesCount == that.endNBasesCount
                 && Objects.equals(lines, that.lines)
+                && Objects.equals(gapRegionsView(), that.gapRegionsView())
                 && Objects.equals(caseInsensitiveBaseCount, that.caseInsensitiveBaseCount);
     }
 }

@@ -19,6 +19,7 @@ import uk.ac.ebi.embl.fastareader.encoding.Utf8Detector;
 import uk.ac.ebi.embl.fastareader.exception.SequenceFileException;
 import uk.ac.ebi.embl.fastareader.exception.SequenceReadingException;
 import uk.ac.ebi.embl.fastareader.sequenceutils.ByteSpan;
+import uk.ac.ebi.embl.fastareader.sequenceutils.GapRegion;
 import uk.ac.ebi.embl.fastareader.sequenceutils.SequenceAlphabet;
 import uk.ac.ebi.embl.fastareader.sequenceutils.SequenceIndex;
 
@@ -137,6 +138,14 @@ public class SequenceReader implements AutoCloseable {
         ensureFileReaderOpen();
         ByteSpan span = getByteSpan(fromBase, toBase, option);
         return reader.getSequenceSliceReader(span);
+    }
+
+    public List<GapRegion> getGapRegions() {
+        return sequenceIndex.gapRegionsView();
+    }
+
+    public List<GapRegion> getGapRegions(long fromBase, long toBase) {
+        return sequenceIndex.gapRegionsView(fromBase, toBase);
     }
 
     // ---------------------------- interactions with the reader ----------------------------

@@ -52,6 +52,7 @@ public final class SequenceIndexBuilder {
             if (processBuffer(buf, s)) break; // found next header
             s.pos += n;
         }
+        commitOpenGapIfAny(s);
         commitOpenLineIfAny(s);
 
         // ------------- compute metadata -------------
@@ -73,7 +74,8 @@ public final class SequenceIndexBuilder {
                 lines,
                 s.nextHdr,
                 s.charCounts,
-                alphabet.getAllowedBaseCharList());
+                alphabet.getAllowedBaseCharList(),
+                s.gapRegions);
     }
 
     // =====================================================================
@@ -90,9 +92,11 @@ public final class SequenceIndexBuilder {
         long lineLastByte = -1; // last  allowed base byte in current line
         long basesSoFar = 0;
         long basesInLine = 0;
+        long currentGapStartBase = -1;
         final long[] charCounts = new long[128]; // counts allowed character appearances
 
         final ArrayList<LineEntry> lines = new ArrayList<>(256);
+        final ArrayList<GapRegion> gapRegions = new ArrayList<>(256);
 
         ScanState(long startPos, long charAtEndIndex) {
             this.pos = startPos;
@@ -121,6 +125,7 @@ public final class SequenceIndexBuilder {
 
             if (isHeaderStart(b, abs)) {
                 s.nextHdr = abs; // stop window at header byte
+                commitOpenGapIfAny(s); // finalize any in-flight gap
                 commitOpenLineIfAny(s); // finalize any in-flight line
                 return true;
             } else if (alphabet.isNonSequenceAllowedChar(b)) { // end of a displayed sequence line or CR
@@ -129,6 +134,7 @@ public final class SequenceIndexBuilder {
             } else if (alphabet.isAllowedBase(b)) {
                 int ci = b & 0x7F; // 0..127
                 s.charCounts[ci]++;
+                observeGapStatus(b, s);
                 observeBase(abs, s);
             } else {
                 throw new SequenceReadingException(String.format(
@@ -167,6 +173,22 @@ public final class SequenceIndexBuilder {
 
         if (s.firstBaseByte < 0) s.firstBaseByte = abs;
         s.lastBaseByte = abs;
+    }
+
+    private void observeGapStatus(byte b, ScanState s) {
+        long base = s.basesSoFar + s.basesInLine + 1;
+        if (alphabet.isNBase(b)) {
+            if (s.currentGapStartBase < 0) s.currentGapStartBase = base;
+        } else {
+            commitOpenGapIfAny(s);
+        }
+    }
+
+    private void commitOpenGapIfAny(ScanState s) {
+        if (s.currentGapStartBase < 0) return;
+        long gapEndBase = s.basesSoFar + s.basesInLine;
+        s.gapRegions.add(new GapRegion(s.currentGapStartBase, gapEndBase));
+        s.currentGapStartBase = -1;
     }
 
     private void commitOpenLineIfAny(ScanState s) {

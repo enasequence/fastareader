@@ -22,6 +22,7 @@ import uk.ac.ebi.embl.fastareader.SequenceReader;
 import uk.ac.ebi.embl.fastareader.SequenceStats;
 import uk.ac.ebi.embl.fastareader.api.rereading.SequenceInfoDTO;
 import uk.ac.ebi.embl.fastareader.exception.SequenceFileException;
+import uk.ac.ebi.embl.fastareader.sequenceutils.GapRegion;
 import uk.ac.ebi.embl.fastareader.sequenceutils.SequenceAlphabet;
 import uk.ac.ebi.embl.fastareader.sequenceutils.SequenceIndex;
 
@@ -78,6 +79,18 @@ public class SequenceReaderWrapper implements AutoCloseable, SequenceFormatReade
     public SequenceStats getStats(long id) {
         validateId(id);
         return sequenceReader.getStats();
+    }
+
+    @Override
+    public List<GapRegion> getGapRegions(long id) {
+        validateId(id);
+        return sequenceReader.getGapRegions();
+    }
+
+    @Override
+    public List<GapRegion> getGapRegions(long id, long fromBase, long toBase) {
+        validateId(id);
+        return sequenceReader.getGapRegions(fromBase, toBase);
     }
 
     @Override
