@@ -97,8 +97,10 @@ public interface SequenceFormatReader extends AutoCloseable {
 
     /**
      * Returns contiguous N/n gap regions overlapping the requested 1-based inclusive base range.
+     * Returned regions are not clipped to the range; any gap overlapping {@code [fromBase, toBase]} is included whole.
      *
-     * @throws IllegalArgumentException if the id does not exist or cannot be resolved, or the range is invalid
+     * @throws IllegalArgumentException if the id does not exist, if {@code fromBase < 1},
+     *     {@code toBase < fromBase}, or {@code toBase} exceeds the total base count of the record
      */
     List<GapRegion> getGapRegions(long id, long fromBase, long toBase);
 

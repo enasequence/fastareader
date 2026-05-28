@@ -192,4 +192,17 @@ public final class SequenceIndex {
                 && Objects.equals(gapRegionsView(), that.gapRegionsView())
                 && Objects.equals(caseInsensitiveBaseCount, that.caseInsensitiveBaseCount);
     }
+
+    @Override
+    public int hashCode() {
+        return Objects.hash(
+                firstBaseByte,
+                lastBaseByte,
+                nextHeaderByte,
+                startNBasesCount,
+                endNBasesCount,
+                lines,
+                gapRegionsView(),
+                caseInsensitiveBaseCount);
+    }
 }
