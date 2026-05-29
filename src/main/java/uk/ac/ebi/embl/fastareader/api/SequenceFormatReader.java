@@ -18,6 +18,7 @@ import uk.ac.ebi.embl.fastareader.SequenceFileFormat;
 import uk.ac.ebi.embl.fastareader.SequenceRangeOption;
 import uk.ac.ebi.embl.fastareader.SequenceStats;
 import uk.ac.ebi.embl.fastareader.api.rereading.SequenceInfoDTO;
+import uk.ac.ebi.embl.fastareader.sequenceutils.GapRegion;
 import uk.ac.ebi.embl.fastareader.sequenceutils.SequenceAlphabet;
 import uk.ac.ebi.embl.fastareader.sequenceutils.SequenceIndex;
 
@@ -86,6 +87,54 @@ public interface SequenceFormatReader extends AutoCloseable {
      * @throws IllegalArgumentException if the id does not exist or cannot be resolved
      */
     SequenceStats getStats(long id);
+
+    /**
+     * Returns contiguous N/n gap regions for the whole record, using 1-based inclusive base coordinates.
+     *
+     * <p>This is equivalent to calling {@link #getGapRegions(long, SequenceRangeOption)} with
+     * {@link SequenceRangeOption#WHOLE_SEQUENCE}.
+     *
+     * @throws IllegalArgumentException if the id does not exist or cannot be resolved
+     */
+    List<GapRegion> getGapRegions(long id);
+
+    /**
+     * Returns contiguous N/n gap regions for the record using coordinates interpreted by {@code option}.
+     *
+     * <p>With {@link SequenceRangeOption#WHOLE_SEQUENCE}, coordinates are relative to the whole sequence. With
+     * {@link SequenceRangeOption#WITHOUT_EDGE_N_BASES}, leading and trailing edge N bases are excluded and returned
+     * gap coordinates are shifted to the trimmed sequence coordinate system.
+     *
+     * @throws IllegalArgumentException if the id does not exist or cannot be resolved
+     */
+    List<GapRegion> getGapRegions(long id, SequenceRangeOption option);
+
+    /**
+     * Returns contiguous N/n gap regions overlapping the requested 1-based inclusive base range.
+     * Returned regions are not clipped to the range; any gap overlapping {@code [fromBase, toBase]} is included whole.
+     *
+     * <p>This is equivalent to calling {@link #getGapRegions(long, long, long, SequenceRangeOption)} with
+     * {@link SequenceRangeOption#WHOLE_SEQUENCE}.
+     *
+     * @throws IllegalArgumentException if the id does not exist, if {@code fromBase < 1},
+     *     {@code toBase < fromBase}, or {@code toBase} exceeds the total base count of the record
+     */
+    List<GapRegion> getGapRegions(long id, long fromBase, long toBase);
+
+    /**
+     * Returns contiguous N/n gap regions overlapping the requested 1-based inclusive base range, using coordinates
+     * interpreted by {@code option}. Returned regions are not clipped to the range; any gap overlapping
+     * {@code [fromBase, toBase]} is included whole.
+     *
+     * <p>With {@link SequenceRangeOption#WHOLE_SEQUENCE}, coordinates are relative to the whole sequence. With
+     * {@link SequenceRangeOption#WITHOUT_EDGE_N_BASES}, leading and trailing edge N bases are excluded; input ranges
+     * are interpreted against the trimmed sequence and returned gap coordinates are shifted to that same trimmed
+     * sequence coordinate system.
+     *
+     * @throws IllegalArgumentException if the id does not exist, if {@code fromBase < 1},
+     *     {@code toBase < fromBase}, or {@code toBase} exceeds the total base count for the selected {@code option}
+     */
+    List<GapRegion> getGapRegions(long id, long fromBase, long toBase, SequenceRangeOption option);
 
     /**
      * Returns a substring slice of the sequence as a String.

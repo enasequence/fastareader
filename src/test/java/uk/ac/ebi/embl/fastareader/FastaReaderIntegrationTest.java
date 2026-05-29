@@ -17,6 +17,7 @@ import java.io.IOException;
 import java.util.List;
 import org.junit.jupiter.api.Test;
 import uk.ac.ebi.embl.fastareader.exception.FastaFileException;
+import uk.ac.ebi.embl.fastareader.sequenceutils.GapRegion;
 
 class FastaReaderIntegrationTest {
 
@@ -171,6 +172,8 @@ class FastaReaderIntegrationTest {
 
             String sequence1 = service.getSequenceSlice(0L, 1, entry1.totalBases(), SequenceRangeOption.WHOLE_SEQUENCE);
             assertEquals("NNACACGTTTNN", sequence1);
+            assertEquals(List.of(new GapRegion(1, 2), new GapRegion(11, 12)), service.getGapRegions(0L));
+            assertEquals(List.of(new GapRegion(11, 12)), service.getGapRegions(0L, 3, 12));
 
             String sequence2 = service.getSequenceSlice(1L, 1, entry2.totalBases(), SequenceRangeOption.WHOLE_SEQUENCE);
             assertEquals("ACGTGGGG", sequence2);

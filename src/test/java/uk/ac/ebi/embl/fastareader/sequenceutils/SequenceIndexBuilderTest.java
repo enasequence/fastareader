@@ -274,6 +274,62 @@ public class SequenceIndexBuilderTest {
     }
 
     @Test
+    void recordsGapRegionsAcrossLinesAndEmptyLines() throws Exception {
+        String header = ">ID4\n";
+        String l1 = "ACNN\n";
+        String blanks = "\n\n";
+        String l2 = "nnGTN\n";
+        String l3 = "NAC\n";
+        String next = ">K\n";
+
+        String fasta = header + l1 + blanks + l2 + l3 + next;
+        Path p = writeAscii(tempDir, "idx_gap.fa", fasta);
+
+        try (FileChannel ch = openRead(p)) {
+            long seqStart = header.getBytes(StandardCharsets.US_ASCII).length;
+            SequenceIndexBuilder sib =
+                    new SequenceIndexBuilder(ch, SequenceAlphabet.defaultNucleotideAlphabet(), Optional.of(GT));
+
+            SequenceIndex idx = sib.buildFrom(seqStart);
+
+            assertEquals(List.of(new GapRegion(3, 6), new GapRegion(9, 10)), idx.gapRegionsView());
+            assertEquals(List.of(new GapRegion(3, 6)), idx.gapRegionsView(1, 8));
+            assertEquals(List.of(new GapRegion(9, 10)), idx.gapRegionsView(7, 11));
+        }
+    }
+
+    @Test
+    void recordsSingleGapWhenSequenceIsOnlyNs() throws Exception {
+        String sequence = "NNnn\nNN";
+        Path p = writeAscii(tempDir, "idx_only_gap.txt", sequence);
+
+        try (FileChannel ch = openRead(p)) {
+            SequenceIndexBuilder sib =
+                    new SequenceIndexBuilder(ch, SequenceAlphabet.defaultNucleotideAlphabet(), Optional.empty());
+
+            SequenceIndex idx = sib.buildFrom(0);
+
+            assertEquals(List.of(new GapRegion(1, 6)), idx.gapRegionsView());
+        }
+    }
+
+    @Test
+    void recordsGapRegionsAcrossLineBreaksAndTabsWithoutOffByOneErrors() throws Exception {
+        String sequence = "ACGTNN\t\n" + "NNNCGTN\n" + "NNACTGNN";
+        Path p = writeAscii(tempDir, "idx_gap_off_by_one.txt", sequence);
+
+        try (FileChannel ch = openRead(p)) {
+            SequenceAlphabet alphabet = new SequenceAlphabet("ACGTNacgtn", "\n\r\t");
+            SequenceIndexBuilder sib = new SequenceIndexBuilder(ch, alphabet, Optional.empty());
+
+            SequenceIndex idx = sib.buildFrom(0);
+
+            assertEquals(
+                    List.of(new GapRegion(5, 9), new GapRegion(13, 15), new GapRegion(20, 21)), idx.gapRegionsView());
+        }
+    }
+
+    @Test
     void doesNotTolerateBreaksWhenReadingContinuousSequence() throws Exception {
         String l1 = "NACG\n"; // leading N = 1
         String l2 = "N>NNN\n"; // middle line of Ns — must NOT affect start/end N counts

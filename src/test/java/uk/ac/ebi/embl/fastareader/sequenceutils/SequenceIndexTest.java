@@ -15,6 +15,7 @@ import static org.junit.jupiter.api.Assertions.*;
 import java.util.ArrayList;
 import java.util.List;
 import org.junit.jupiter.api.Test;
+import uk.ac.ebi.embl.fastareader.SequenceRangeOption;
 
 public class SequenceIndexTest {
 
@@ -31,6 +32,10 @@ public class SequenceIndexTest {
      *  - total bases including edge Ns = 12
      */
     private SequenceIndex buildIndex(long startN, long endN) {
+        return buildIndex(startN, endN, new ArrayList<>());
+    }
+
+    private SequenceIndex buildIndex(long startN, long endN, List<GapRegion> gapRegions) {
         List<LineEntry> lines =
                 List.of(new LineEntry(1, 4, 100, 104), new LineEntry(5, 8, 105, 109), new LineEntry(9, 12, 110, 114));
         return new SequenceIndex(
@@ -41,7 +46,8 @@ public class SequenceIndexTest {
                 lines,
                 114, // random value i put in, no meaning rn
                 /*totalNBases*/ new long[128],
-                new ArrayList<>()); // random value i put in, no meaning rn
+                new ArrayList<>(),
+                gapRegions);
     }
 
     @Test
@@ -127,5 +133,16 @@ public class SequenceIndexTest {
 
         assertEquals(b.start, a.start);
         assertEquals(b.endEx, a.endEx);
+    }
+
+    @Test
+    void gapRegionsCanUseTrimmedSequenceCoordinates() {
+        SequenceIndex idx = buildIndex(2, 2, List.of(new GapRegion(1, 2), new GapRegion(5, 6), new GapRegion(11, 12)));
+
+        assertEquals(
+                List.of(new GapRegion(1, 2), new GapRegion(5, 6), new GapRegion(11, 12)),
+                idx.gapRegionsView(SequenceRangeOption.WHOLE_SEQUENCE));
+        assertEquals(List.of(new GapRegion(3, 4)), idx.gapRegionsView(SequenceRangeOption.WITHOUT_EDGE_N_BASES));
+        assertEquals(List.of(new GapRegion(3, 4)), idx.gapRegionsView(2, 5, SequenceRangeOption.WITHOUT_EDGE_N_BASES));
     }
 }
