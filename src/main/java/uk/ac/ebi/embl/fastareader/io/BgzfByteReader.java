@@ -19,6 +19,7 @@ import java.util.ArrayList;
 import java.util.LinkedHashMap;
 import java.util.List;
 import java.util.Map;
+import java.util.zip.CRC32;
 import java.util.zip.DataFormatException;
 import java.util.zip.Inflater;
 
@@ -35,6 +36,9 @@ import java.util.zip.Inflater;
  * <p>Logical offsets are flat and additive and equal the offsets of the file's decompressed
  * twin, so the {@code SequenceIndex} built from a BGZF file is identical to its uncompressed
  * equivalent.</p>
+ *
+ * <p>This class is not thread-safe. Concurrent reads require external synchronization or
+ * separate reader instances.</p>
  */
 public final class BgzfByteReader implements SeekableByteReader {
 
@@ -57,6 +61,7 @@ public final class BgzfByteReader implements SeekableByteReader {
     private final int[] uncompressedSizes;
     private final int[] blockSizes;
     private final int[] dataOffsets; // offset within block where the deflate payload begins
+    private final int[] crc32s; // gzip trailer CRC32 for each block
     private final long totalUncompressed;
 
     // LRU cache of decompressed block payloads keyed by block index.
@@ -66,6 +71,7 @@ public final class BgzfByteReader implements SeekableByteReader {
 
     public BgzfByteReader(File file) throws IOException {
         this.channel = FileChannel.open(file.toPath(), StandardOpenOption.READ);
+        boolean close = true;
         try {
             List<long[]> directory = buildDirectory();
             int n = directory.size();
@@ -74,6 +80,7 @@ public final class BgzfByteReader implements SeekableByteReader {
             this.uncompressedSizes = new int[n];
             this.blockSizes = new int[n];
             this.dataOffsets = new int[n];
+            this.crc32s = new int[n];
             long total = 0;
             for (int i = 0; i < n; i++) {
                 long[] b = directory.get(i);
@@ -82,6 +89,7 @@ public final class BgzfByteReader implements SeekableByteReader {
                 uncompressedSizes[i] = (int) b[2];
                 blockSizes[i] = (int) b[3];
                 dataOffsets[i] = (int) b[4];
+                crc32s[i] = (int) b[5];
                 total += b[2];
             }
             this.totalUncompressed = total;
@@ -91,9 +99,9 @@ public final class BgzfByteReader implements SeekableByteReader {
                     return size() > CACHE_CAPACITY;
                 }
             };
-        } catch (IOException e) {
-            channel.close();
-            throw e;
+            close = false;
+        } finally {
+            if (close) channel.close();
         }
     }
 
@@ -121,14 +129,16 @@ public final class BgzfByteReader implements SeekableByteReader {
                 throw new IOException("Malformed BGZF: implausible BSIZE at compressed offset " + compressedOffset);
             }
 
-            byte[] tail = readAt(compressedOffset + blockSize - 4, 4);
-            long isize = (tail[0] & 0xFFL)
-                    | ((tail[1] & 0xFFL) << 8)
-                    | ((tail[2] & 0xFFL) << 16)
-                    | ((tail[3] & 0xFFL) << 24);
+            byte[] tail = readAt(compressedOffset + blockSize - GZIP_TRAILER_SIZE, GZIP_TRAILER_SIZE);
+            int crc32 =
+                    (tail[0] & 0xFF) | ((tail[1] & 0xFF) << 8) | ((tail[2] & 0xFF) << 16) | ((tail[3] & 0xFF) << 24);
+            long isize = (tail[4] & 0xFFL)
+                    | ((tail[5] & 0xFFL) << 8)
+                    | ((tail[6] & 0xFFL) << 16)
+                    | ((tail[7] & 0xFFL) << 24);
 
             if (isize > 0) {
-                directory.add(new long[] {compressedOffset, uncompressedStart, isize, blockSize, dataOffset});
+                directory.add(new long[] {compressedOffset, uncompressedStart, isize, blockSize, dataOffset, crc32});
                 uncompressedStart += isize;
             }
             compressedOffset += blockSize;
@@ -242,7 +252,7 @@ public final class BgzfByteReader implements SeekableByteReader {
             while (total < out.length) {
                 int n = inflater.inflate(out, total, out.length - total);
                 if (n == 0) {
-                    if (inflater.finished() || inflater.needsInput()) break;
+                    if (inflater.finished() || inflater.needsInput() || inflater.needsDictionary()) break;
                 }
                 total += n;
             }
@@ -255,7 +265,13 @@ public final class BgzfByteReader implements SeekableByteReader {
         } finally {
             inflater.end();
         }
-        // TODO: optional CRC32 verify against the gzip trailer.
+
+        CRC32 crc = new CRC32();
+        crc.update(out, 0, out.length);
+        if ((int) crc.getValue() != crc32s[index]) {
+            throw new IOException("Malformed BGZF: CRC32 mismatch at compressed offset " + offset);
+        }
+
         return out;
     }
 

@@ -39,13 +39,18 @@ class InternalReader implements AutoCloseable {
     }
 
     InternalReader(File file, SequenceAlphabet alphabet, SequenceFileFormat fileFormat) throws IOException {
-        Objects.requireNonNull(file, "Input FASTA file is null");
+        this(file, alphabet, fileFormat, SeekableByteReaderFactory.open(file));
+    }
+
+    InternalReader(File file, SequenceAlphabet alphabet, SequenceFileFormat fileFormat, SeekableByteReader reader)
+            throws IOException {
+        Objects.requireNonNull(file, "Input file is null");
         if (!file.exists()) throw new FileNotFoundException(file.getAbsolutePath());
         if (file.isDirectory()) throw new FileNotFoundException("Directory: " + file.getAbsolutePath());
         if (!file.canRead()) throw new IllegalArgumentException("No read permission: " + file.getAbsolutePath());
         this.alphabet = Objects.requireNonNull(alphabet, "alphabet");
         this.fileFormat = Objects.requireNonNull(fileFormat, "fileFormat");
-        this.reader = SeekableByteReaderFactory.open(file);
+        this.reader = Objects.requireNonNull(reader, "reader");
         this.fileSize = reader.size();
         this.headerLineDecoder =
                 new HeaderLineDecoder(StandardCharsets.UTF_8, new HashSet<>(Arrays.asList(LF, CR)), BUFFER_SIZE);

@@ -28,7 +28,7 @@ public final class SeekableByteReaderFactory {
             case BGZF:
                 return new BgzfByteReader(file);
             case PLAIN_GZIP:
-                throw new IOException("Plain gzip is not seekable; recompress with bgzip: " + file.getAbsolutePath());
+                throw new IOException("Plain gzip is not supported; recompress with bgzip: " + file.getAbsolutePath());
             case UNCOMPRESSED:
             default:
                 return new FileChannelByteReader(file);
