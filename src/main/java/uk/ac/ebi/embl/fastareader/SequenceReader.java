@@ -188,8 +188,13 @@ public class SequenceReader implements AutoCloseable {
     // ----------------------------- helper methods for actually loading the plain sequence ------------------
 
     private void checkIfUtf8(File file) throws IOException, SequenceFileException {
+        BgzfDetector.Compression comp = BgzfDetector.detect(file);
+        if (comp == BgzfDetector.Compression.PLAIN_GZIP) {
+            throw new SequenceFileException(
+                    "Plain gzip is not supported; recompress with bgzip: " + file.getAbsolutePath());
+        }
         final boolean ok;
-        if (BgzfDetector.detect(file) == BgzfDetector.Compression.BGZF) {
+        if (comp == BgzfDetector.Compression.BGZF) {
             // For BGZF the raw bytes are binary; validate the decompressed prefix instead.
             ok = Utf8Detector.isProbablyUtf8(
                     new ByteArrayInputStream(decompressedPrefix(file, UTF_8_CHECK_MAXIMUM_BYTES)),

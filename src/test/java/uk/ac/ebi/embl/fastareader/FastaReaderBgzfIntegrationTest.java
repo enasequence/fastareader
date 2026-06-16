@@ -13,11 +13,16 @@ package uk.ac.ebi.embl.fastareader;
 import static org.junit.jupiter.api.Assertions.*;
 
 import java.io.File;
+import java.nio.charset.StandardCharsets;
 import java.nio.file.Files;
 import java.nio.file.Path;
 import java.util.List;
+import java.util.zip.GZIPOutputStream;
 import org.junit.jupiter.api.Test;
 import org.junit.jupiter.api.io.TempDir;
+import uk.ac.ebi.embl.fastareader.api.SequenceFormatReader;
+import uk.ac.ebi.embl.fastareader.api.SequenceFormatReaderFactory;
+import uk.ac.ebi.embl.fastareader.api.rereading.SequenceInfoDTO;
 import uk.ac.ebi.embl.fastareader.exception.FastaFileException;
 import uk.ac.ebi.embl.fastareader.io.BgzfTestWriter;
 
@@ -117,6 +122,91 @@ class FastaReaderBgzfIntegrationTest {
                     String streamed = streamWhole(compressed, id, end);
                     assertEquals(s, streamed, "id " + id + " end " + end);
                 }
+            }
+        }
+    }
+
+    // ---- plain-gzip rejection ----
+
+    /**
+     * A plain (non-BGZF) gzip file must be rejected by {@code FastaReader} with a
+     * {@link FastaFileException} that mentions "bgzip" or "gzip" in its message.
+     */
+    @Test
+    void plainGzipIsRejectedByFastaReader() throws Exception {
+        Path gz = tmp.resolve("plain.fasta.gz");
+        try (GZIPOutputStream gos = new GZIPOutputStream(Files.newOutputStream(gz))) {
+            gos.write(">hdr\nACGT\n".getBytes(StandardCharsets.US_ASCII));
+        }
+        FastaFileException ex = assertThrows(FastaFileException.class, () -> new FastaReader(gz.toFile()).close());
+        String msg = ex.getMessage().toLowerCase();
+        assertTrue(
+                msg.contains("bgzip") || msg.contains("gzip"),
+                "exception message should mention gzip, got: " + ex.getMessage());
+    }
+
+    // ---- SequenceInfoDTO re-reading round-trip over BGZF ----
+
+    /**
+     * Export {@link SequenceInfoDTO} from a BGZF-backed {@code FastaReader}, reload via
+     * {@code SequenceFormatReaderFactory.readBySequenceInfo}, and assert that slices, stats,
+     * gap regions, and header lines are identical.
+     */
+    @Test
+    void rereadingViaSequenceInfoDtoMatchesOriginal() throws Exception {
+        File bgzf = BgzfFixtures.bgzfCopyOf("fasta", "example.txt", tmp, 16);
+
+        SequenceInfoDTO dto;
+        try (SequenceFormatReader service = SequenceFormatReaderFactory.readFasta(bgzf)) {
+            dto = service.exportReaderSettings();
+        }
+
+        try (SequenceFormatReader original = SequenceFormatReaderFactory.readFasta(bgzf);
+                SequenceFormatReader reread = SequenceFormatReaderFactory.readBySequenceInfo(dto)) {
+
+            assertEquals(original.getOrderedIds(), reread.getOrderedIds(), "ordered ids");
+            for (long id : original.getOrderedIds()) {
+                assertEquals(original.getSequenceIndex(id), reread.getSequenceIndex(id), "index " + id);
+                assertEquals(original.getStats(id), reread.getStats(id), "stats " + id);
+                assertEquals(original.getGapRegions(id), reread.getGapRegions(id), "gaps " + id);
+                assertEquals(original.getHeaderline(id), reread.getHeaderline(id), "header " + id);
+
+                long total = original.getStats(id).totalBases();
+                String expectedSlice = original.getSequenceSlice(id, 1, total, SequenceRangeOption.WHOLE_SEQUENCE);
+                String rereadSlice = reread.getSequenceSlice(id, 1, total, SequenceRangeOption.WHOLE_SEQUENCE);
+                assertEquals(expectedSlice, rereadSlice, "slice " + id);
+            }
+        }
+    }
+
+    /**
+     * Same as {@link #rereadingViaSequenceInfoDtoMatchesOriginal()} but with a multi-entry FASTA
+     * and tiny BGZF blocks so header seeking spans block boundaries.
+     */
+    @Test
+    void rereadingMultiEntryBgzfViaSequenceInfoDtoMatchesOriginal() throws Exception {
+        // Use tiny blocks so the header line of the second entry spans a block boundary
+        File bgzf = BgzfFixtures.bgzfCopyOf("fasta", "differing_headerline_fasta.txt", tmp, 8);
+
+        SequenceInfoDTO dto;
+        try (SequenceFormatReader service = SequenceFormatReaderFactory.readFasta(bgzf)) {
+            dto = service.exportReaderSettings();
+        }
+
+        try (SequenceFormatReader original = SequenceFormatReaderFactory.readFasta(bgzf);
+                SequenceFormatReader reread = SequenceFormatReaderFactory.readBySequenceInfo(dto)) {
+
+            assertEquals(original.getOrderedIds(), reread.getOrderedIds(), "ordered ids");
+            for (long id : original.getOrderedIds()) {
+                assertEquals(original.getSequenceIndex(id), reread.getSequenceIndex(id), "index " + id);
+                assertEquals(original.getStats(id), reread.getStats(id), "stats " + id);
+                assertEquals(original.getGapRegions(id), reread.getGapRegions(id), "gaps " + id);
+                assertEquals(original.getHeaderline(id), reread.getHeaderline(id), "header " + id);
+
+                long total = original.getStats(id).totalBases();
+                String expectedSlice = original.getSequenceSlice(id, 1, total, SequenceRangeOption.WHOLE_SEQUENCE);
+                String rereadSlice = reread.getSequenceSlice(id, 1, total, SequenceRangeOption.WHOLE_SEQUENCE);
+                assertEquals(expectedSlice, rereadSlice, "slice " + id);
             }
         }
     }

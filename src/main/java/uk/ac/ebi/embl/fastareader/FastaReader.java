@@ -267,8 +267,13 @@ public final class FastaReader implements AutoCloseable, SequenceFormatReader {
     // ----------------------------- helper methods for actually loading the fastaEntries ------------------
 
     private void checkIfUtf8(File file) throws IOException, FastaFileException {
+        BgzfDetector.Compression comp = BgzfDetector.detect(file);
+        if (comp == BgzfDetector.Compression.PLAIN_GZIP) {
+            throw new FastaFileException(
+                    "Plain gzip is not supported; recompress with bgzip: " + file.getAbsolutePath());
+        }
         final boolean ok;
-        if (BgzfDetector.detect(file) == BgzfDetector.Compression.BGZF) {
+        if (comp == BgzfDetector.Compression.BGZF) {
             // For BGZF the raw bytes are binary; validate the decompressed prefix instead.
             ok = Utf8Detector.isProbablyUtf8(
                     new ByteArrayInputStream(decompressedPrefix(file, UTF_8_CHECK_MAXIMUM_BYTES)),

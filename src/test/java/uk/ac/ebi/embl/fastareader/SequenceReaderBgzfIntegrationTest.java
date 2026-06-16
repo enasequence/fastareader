@@ -13,10 +13,15 @@ package uk.ac.ebi.embl.fastareader;
 import static org.junit.jupiter.api.Assertions.*;
 
 import java.io.File;
+import java.nio.charset.StandardCharsets;
 import java.nio.file.Files;
 import java.nio.file.Path;
+import java.util.zip.GZIPOutputStream;
 import org.junit.jupiter.api.Test;
 import org.junit.jupiter.api.io.TempDir;
+import uk.ac.ebi.embl.fastareader.api.SequenceFormatReader;
+import uk.ac.ebi.embl.fastareader.api.SequenceFormatReaderFactory;
+import uk.ac.ebi.embl.fastareader.api.rereading.SequenceInfoDTO;
 import uk.ac.ebi.embl.fastareader.exception.SequenceFileException;
 import uk.ac.ebi.embl.fastareader.io.BgzfTestWriter;
 
@@ -103,6 +108,84 @@ class SequenceReaderBgzfIntegrationTest {
                 String streamed = streamWhole(compressed, end);
                 assertEquals(s, streamed, "end " + end);
             }
+        }
+    }
+
+    // ---- plain-gzip rejection ----
+
+    /**
+     * A plain (non-BGZF) gzip file must be rejected by {@code SequenceReader} with a
+     * {@link SequenceFileException} that mentions "bgzip" or "gzip" in its message.
+     */
+    @Test
+    void plainGzipIsRejectedBySequenceReader() throws Exception {
+        Path gz = tmp.resolve("plain.seq.gz");
+        try (GZIPOutputStream gos = new GZIPOutputStream(Files.newOutputStream(gz))) {
+            gos.write("ACGTACGT\n".getBytes(StandardCharsets.US_ASCII));
+        }
+        SequenceFileException ex =
+                assertThrows(SequenceFileException.class, () -> new SequenceReader(gz.toFile()).close());
+        String msg = ex.getMessage().toLowerCase();
+        assertTrue(
+                msg.contains("bgzip") || msg.contains("gzip"),
+                "exception message should mention gzip, got: " + ex.getMessage());
+    }
+
+    // ---- SequenceInfoDTO re-reading round-trip over BGZF ----
+
+    /**
+     * Export {@link SequenceInfoDTO} from a BGZF-backed plain-sequence reader, reload via
+     * {@code SequenceFormatReaderFactory.readBySequenceInfo}, and assert that slices, stats,
+     * and gap regions are identical.
+     */
+    @Test
+    void rereadingViaSequenceInfoDtoMatchesOriginal() throws Exception {
+        File bgzf = BgzfFixtures.bgzfCopyOf("sequence", "example.txt", tmp, 16);
+
+        SequenceInfoDTO dto;
+        try (SequenceFormatReader service = SequenceFormatReaderFactory.readPlainSequence(bgzf)) {
+            dto = service.exportReaderSettings();
+        }
+
+        try (SequenceFormatReader original = SequenceFormatReaderFactory.readPlainSequence(bgzf);
+                SequenceFormatReader reread = SequenceFormatReaderFactory.readBySequenceInfo(dto)) {
+
+            assertEquals(original.getOrderedIds(), reread.getOrderedIds(), "ordered ids");
+            long id = 0L;
+            assertEquals(original.getSequenceIndex(id), reread.getSequenceIndex(id), "index");
+            assertEquals(original.getStats(id), reread.getStats(id), "stats");
+            assertEquals(original.getGapRegions(id), reread.getGapRegions(id), "gaps");
+
+            long total = original.getStats(id).totalBases();
+            String expectedSlice = original.getSequenceSlice(id, 1, total, SequenceRangeOption.WHOLE_SEQUENCE);
+            String rereadSlice = reread.getSequenceSlice(id, 1, total, SequenceRangeOption.WHOLE_SEQUENCE);
+            assertEquals(expectedSlice, rereadSlice, "slice");
+        }
+    }
+
+    /**
+     * Same as {@link #rereadingViaSequenceInfoDtoMatchesOriginal()} but with tiny BGZF blocks
+     * and a larger fixture to exercise cross-block re-reading.
+     */
+    @Test
+    void rereadingWithTinyBlocksViaSequenceInfoDtoMatchesOriginal() throws Exception {
+        File bgzf = BgzfFixtures.bgzfCopyOf("sequence", "only_ns_example.txt", tmp, 4);
+
+        SequenceInfoDTO dto;
+        try (SequenceFormatReader service = SequenceFormatReaderFactory.readPlainSequence(bgzf)) {
+            dto = service.exportReaderSettings();
+        }
+
+        try (SequenceFormatReader original = SequenceFormatReaderFactory.readPlainSequence(bgzf);
+                SequenceFormatReader reread = SequenceFormatReaderFactory.readBySequenceInfo(dto)) {
+
+            long id = 0L;
+            assertEquals(original.getStats(id), reread.getStats(id), "stats");
+
+            long total = original.getStats(id).totalBases();
+            String expectedSlice = original.getSequenceSlice(id, 1, total, SequenceRangeOption.WHOLE_SEQUENCE);
+            String rereadSlice = reread.getSequenceSlice(id, 1, total, SequenceRangeOption.WHOLE_SEQUENCE);
+            assertEquals(expectedSlice, rereadSlice, "slice");
         }
     }
 }
