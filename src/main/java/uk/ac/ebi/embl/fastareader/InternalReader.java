@@ -16,8 +16,8 @@ import java.nio.charset.StandardCharsets;
 import java.util.*;
 import uk.ac.ebi.embl.fastareader.exception.SequenceReadingException;
 import uk.ac.ebi.embl.fastareader.headerutils.HeaderLineDecoder;
-import uk.ac.ebi.embl.fastareader.io.FileChannelByteReader;
 import uk.ac.ebi.embl.fastareader.io.SeekableByteReader;
+import uk.ac.ebi.embl.fastareader.io.SeekableByteReaderFactory;
 import uk.ac.ebi.embl.fastareader.sequenceutils.*;
 
 class InternalReader implements AutoCloseable {
@@ -45,7 +45,7 @@ class InternalReader implements AutoCloseable {
         if (!file.canRead()) throw new IllegalArgumentException("No read permission: " + file.getAbsolutePath());
         this.alphabet = Objects.requireNonNull(alphabet, "alphabet");
         this.fileFormat = Objects.requireNonNull(fileFormat, "fileFormat");
-        this.reader = new FileChannelByteReader(file);
+        this.reader = SeekableByteReaderFactory.open(file);
         this.fileSize = reader.size();
         this.headerLineDecoder =
                 new HeaderLineDecoder(StandardCharsets.UTF_8, new HashSet<>(Arrays.asList(LF, CR)), BUFFER_SIZE);

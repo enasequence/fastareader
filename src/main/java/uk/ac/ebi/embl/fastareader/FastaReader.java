@@ -10,9 +10,11 @@
  */
 package uk.ac.ebi.embl.fastareader;
 
+import java.io.ByteArrayInputStream;
 import java.io.File;
 import java.io.IOException;
 import java.io.Reader;
+import java.nio.ByteBuffer;
 import java.util.*;
 import java.util.stream.Collectors;
 import lombok.Getter;
@@ -22,6 +24,9 @@ import uk.ac.ebi.embl.fastareader.api.rereading.SequenceInfoDTO;
 import uk.ac.ebi.embl.fastareader.encoding.Utf8Detector;
 import uk.ac.ebi.embl.fastareader.exception.FastaFileException;
 import uk.ac.ebi.embl.fastareader.exception.SequenceReadingException;
+import uk.ac.ebi.embl.fastareader.io.BgzfByteReader;
+import uk.ac.ebi.embl.fastareader.io.BgzfDetector;
+import uk.ac.ebi.embl.fastareader.io.SeekableByteReader;
 import uk.ac.ebi.embl.fastareader.sequenceutils.ByteSpan;
 import uk.ac.ebi.embl.fastareader.sequenceutils.GapRegion;
 import uk.ac.ebi.embl.fastareader.sequenceutils.SequenceAlphabet;
@@ -262,8 +267,34 @@ public final class FastaReader implements AutoCloseable, SequenceFormatReader {
     // ----------------------------- helper methods for actually loading the fastaEntries ------------------
 
     private void checkIfUtf8(File file) throws IOException, FastaFileException {
-        if (!Utf8Detector.isProbablyUtf8(file.toPath(), UTF_8_CHECK_MAXIMUM_BYTES)) {
+        final boolean ok;
+        if (BgzfDetector.detect(file) == BgzfDetector.Compression.BGZF) {
+            // For BGZF the raw bytes are binary; validate the decompressed prefix instead.
+            ok = Utf8Detector.isProbablyUtf8(
+                    new ByteArrayInputStream(decompressedPrefix(file, UTF_8_CHECK_MAXIMUM_BYTES)),
+                    UTF_8_CHECK_MAXIMUM_BYTES);
+        } else {
+            ok = Utf8Detector.isProbablyUtf8(file.toPath(), UTF_8_CHECK_MAXIMUM_BYTES);
+        }
+        if (!ok) {
             throw new FastaFileException("File is not a UTF-8 compliant file, and as such cannot be processed");
+        }
+    }
+
+    /** Reads up to {@code maxBytes} of the BGZF file's decompressed (logical) content. */
+    private static byte[] decompressedPrefix(File file, int maxBytes) throws IOException {
+        try (SeekableByteReader reader = new BgzfByteReader(file)) {
+            int prefix = (int) Math.min(reader.size(), (long) maxBytes);
+            ByteBuffer buf = ByteBuffer.allocate(prefix);
+            long pos = 0;
+            while (buf.hasRemaining()) {
+                int n = reader.read(buf, pos);
+                if (n <= 0) break;
+                pos += n;
+            }
+            byte[] out = new byte[buf.position()];
+            System.arraycopy(buf.array(), 0, out, 0, out.length);
+            return out;
         }
     }
 

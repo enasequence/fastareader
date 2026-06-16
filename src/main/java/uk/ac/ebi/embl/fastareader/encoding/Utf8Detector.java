@@ -29,6 +29,21 @@ public final class Utf8Detector {
         if (maxBytes <= 0) throw new IllegalArgumentException("maxBytes must be > 0");
 
         try (InputStream in = Files.newInputStream(path)) {
+            return isProbablyUtf8(in, maxBytes);
+        }
+    }
+
+    /**
+     * Validates that up to {@code maxBytes} bytes drawn from {@code in} look like UTF-8.
+     *
+     * <p>This overload validates an arbitrary byte stream rather than a file path, which lets
+     * callers feed a <em>decompressed</em> prefix (e.g. of a BGZF file) into the same state
+     * machine. The caller owns the stream and is responsible for closing it.</p>
+     */
+    public static boolean isProbablyUtf8(InputStream in, int maxBytes) throws IOException {
+        if (maxBytes <= 0) throw new IllegalArgumentException("maxBytes must be > 0");
+
+        {
             byte[] buf = new byte[1024 * 1024];
 
             int totalRead = 0;
