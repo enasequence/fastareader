@@ -13,10 +13,13 @@ package uk.ac.ebi.embl.fastareader;
 import static org.junit.jupiter.api.Assertions.*;
 
 import java.io.File;
+import java.nio.file.Files;
 import java.nio.file.Path;
 import java.util.List;
 import org.junit.jupiter.api.Test;
 import org.junit.jupiter.api.io.TempDir;
+import uk.ac.ebi.embl.fastareader.exception.FastaFileException;
+import uk.ac.ebi.embl.fastareader.io.BgzfTestWriter;
 
 /** Round-trip equivalence: a BGZF copy of each FASTA fixture must read identically. */
 class FastaReaderBgzfIntegrationTest {
@@ -80,6 +83,25 @@ class FastaReaderBgzfIntegrationTest {
             }
             return sb.toString();
         }
+    }
+
+    // ---- UTF-8 gate ----
+
+    /**
+     * A BGZF file whose decompressed content contains non-UTF-8 bytes must be rejected by
+     * {@code FastaReader} with a {@link FastaFileException} referencing UTF-8.
+     */
+    @Test
+    void bgzfWithNonUtf8DecompressedContentIsRejected() throws Exception {
+        // 0x80 is an invalid UTF-8 start byte — will fail Utf8Detector
+        byte[] nonUtf8 = {0x3E, 'h', 'd', 'r', 0x0A, 0x41, (byte) 0x80, 0x43, 0x0A};
+        byte[] bgzfBytes = BgzfTestWriter.toBgzf(nonUtf8, 16);
+        Path target = tmp.resolve("non_utf8_fasta.fa.bgzf");
+        Files.write(target, bgzfBytes);
+
+        FastaFileException ex = assertThrows(FastaFileException.class, () -> new FastaReader(target.toFile()).close());
+        assertTrue(
+                ex.getMessage().contains("UTF-8"), "exception message should mention UTF-8, got: " + ex.getMessage());
     }
 
     @Test

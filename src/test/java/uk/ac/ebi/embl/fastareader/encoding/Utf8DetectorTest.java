@@ -12,7 +12,9 @@ package uk.ac.ebi.embl.fastareader.encoding;
 
 import static org.junit.jupiter.api.Assertions.*;
 
+import java.io.ByteArrayInputStream;
 import java.io.IOException;
+import java.nio.charset.StandardCharsets;
 import java.nio.file.Path;
 import org.junit.jupiter.api.Test;
 import uk.ac.ebi.embl.fastareader.TestResources;
@@ -51,6 +53,45 @@ class Utf8DetectorTest {
         assertFalse(Utf8Detector.isProbablyUtf8(p1));
         assertFalse(Utf8Detector.isProbablyUtf8(p2));
     }
+
+    // ---- InputStream overload (used by the BGZF-aware UTF-8 gate) ----
+
+    @Test
+    void streamOverloadValidAsciiPasses() throws IOException {
+        byte[] content = "ACGTACGT\nACGT\n".getBytes(StandardCharsets.US_ASCII);
+        assertTrue(Utf8Detector.isProbablyUtf8(new ByteArrayInputStream(content), content.length));
+    }
+
+    @Test
+    void streamOverloadValidMultibyteUtf8Passes() throws IOException {
+        // U+00E9 encoded as 2-byte UTF-8 sequence (0xC3 0xA9)
+        byte[] content = {0x41, (byte) 0xC3, (byte) 0xA9, 0x0A};
+        assertTrue(Utf8Detector.isProbablyUtf8(new ByteArrayInputStream(content), content.length));
+    }
+
+    @Test
+    void streamOverloadNonUtf8ByteFails() throws IOException {
+        // 0x80 alone is an invalid UTF-8 start byte
+        byte[] content = {0x41, 0x43, (byte) 0x80, 0x54};
+        assertFalse(Utf8Detector.isProbablyUtf8(new ByteArrayInputStream(content), content.length));
+    }
+
+    @Test
+    void streamOverloadRespectsMaxBytesLimit() throws IOException {
+        // First maxBytes bytes are valid ASCII, last byte is 0x80 (invalid UTF-8)
+        int limit = 8;
+        byte[] content = new byte[limit + 1];
+        for (int i = 0; i < limit; i++) content[i] = 0x41; // 'A'
+        content[limit] = (byte) 0x80;
+        assertTrue(
+                Utf8Detector.isProbablyUtf8(new ByteArrayInputStream(content), limit),
+                "should pass when maxBytes covers only the valid prefix");
+        assertFalse(
+                Utf8Detector.isProbablyUtf8(new ByteArrayInputStream(content), limit + 1),
+                "should fail when maxBytes covers the invalid byte");
+    }
+
+    // ---- Path-based overload (existing tests) ----
 
     @Test
     void respectsMaxBytesLimit() throws IOException {

@@ -13,9 +13,12 @@ package uk.ac.ebi.embl.fastareader;
 import static org.junit.jupiter.api.Assertions.*;
 
 import java.io.File;
+import java.nio.file.Files;
 import java.nio.file.Path;
 import org.junit.jupiter.api.Test;
 import org.junit.jupiter.api.io.TempDir;
+import uk.ac.ebi.embl.fastareader.exception.SequenceFileException;
+import uk.ac.ebi.embl.fastareader.io.BgzfTestWriter;
 
 /** Round-trip equivalence: a BGZF copy of each plain-sequence fixture must read identically. */
 class SequenceReaderBgzfIntegrationTest {
@@ -68,6 +71,26 @@ class SequenceReaderBgzfIntegrationTest {
             }
             return sb.toString();
         }
+    }
+
+    // ---- UTF-8 gate ----
+
+    /**
+     * A BGZF file whose decompressed content contains non-UTF-8 bytes must be rejected by
+     * {@code SequenceReader} with a {@link SequenceFileException} referencing UTF-8.
+     */
+    @Test
+    void bgzfWithNonUtf8DecompressedContentIsRejected() throws Exception {
+        // 0x80 is an invalid UTF-8 start byte — will fail Utf8Detector
+        byte[] nonUtf8 = {0x41, 0x43, (byte) 0x80, 0x54, 0x0A};
+        byte[] bgzfBytes = BgzfTestWriter.toBgzf(nonUtf8, 16);
+        Path target = tmp.resolve("non_utf8_seq.bgzf");
+        Files.write(target, bgzfBytes);
+
+        SequenceFileException ex =
+                assertThrows(SequenceFileException.class, () -> new SequenceReader(target.toFile()).close());
+        assertTrue(
+                ex.getMessage().contains("UTF-8"), "exception message should mention UTF-8, got: " + ex.getMessage());
     }
 
     @Test
