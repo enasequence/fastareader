@@ -14,14 +14,14 @@ import static org.junit.jupiter.api.Assertions.*;
 
 import java.io.File;
 import java.io.IOException;
-import java.nio.channels.FileChannel;
 import java.nio.charset.CharacterCodingException;
 import java.nio.charset.StandardCharsets;
-import java.nio.file.StandardOpenOption;
 import java.util.HashSet;
 import java.util.Set;
 import org.junit.jupiter.api.Test;
 import uk.ac.ebi.embl.fastareader.TestResources;
+import uk.ac.ebi.embl.fastareader.io.FileChannelByteReader;
+import uk.ac.ebi.embl.fastareader.io.SeekableByteReader;
 
 class HeaderLineDecoderTest {
 
@@ -35,8 +35,8 @@ class HeaderLineDecoderTest {
         return s;
     }
 
-    private static FileChannel openRead(File f) throws IOException {
-        return FileChannel.open(f.toPath(), StandardOpenOption.READ);
+    private static SeekableByteReader openRead(File f) throws IOException {
+        return new FileChannelByteReader(f);
     }
 
     @Test
@@ -46,7 +46,7 @@ class HeaderLineDecoderTest {
 
         HeaderLineDecoder d = new HeaderLineDecoder(StandardCharsets.UTF_8, endChars(), 8);
 
-        try (FileChannel ch = openRead(fasta)) {
+        try (SeekableByteReader ch = openRead(fasta)) {
             long from = 0;
             String line = d.readHeaderLine(ch, from);
 
@@ -64,7 +64,7 @@ class HeaderLineDecoderTest {
 
         HeaderLineDecoder d = new HeaderLineDecoder(StandardCharsets.UTF_8, endChars(), 4);
 
-        try (FileChannel ch = openRead(fasta)) {
+        try (SeekableByteReader ch = openRead(fasta)) {
             String line = d.readHeaderLine(ch, 0);
             assertEquals(">A¢B", line);
         }
@@ -77,7 +77,7 @@ class HeaderLineDecoderTest {
 
         HeaderLineDecoder d = new HeaderLineDecoder(StandardCharsets.UTF_8, endChars(), 8);
 
-        try (FileChannel ch = openRead(fasta)) {
+        try (SeekableByteReader ch = openRead(fasta)) {
             String line = d.readHeaderLine(ch, 0);
 
             assertEquals(">abc", line);
@@ -92,7 +92,7 @@ class HeaderLineDecoderTest {
 
         HeaderLineDecoder d = new HeaderLineDecoder(StandardCharsets.UTF_8, endChars(), 8);
 
-        try (FileChannel ch = openRead(fasta)) {
+        try (SeekableByteReader ch = openRead(fasta)) {
             String line = d.readHeaderLine(ch, 0);
             assertEquals(">abc", line);
             assertEquals(5, ch.position());
@@ -108,7 +108,7 @@ class HeaderLineDecoderTest {
 
         HeaderLineDecoder d = new HeaderLineDecoder(StandardCharsets.UTF_8, endChars(), 8);
 
-        try (FileChannel ch = openRead(fasta)) {
+        try (SeekableByteReader ch = openRead(fasta)) {
             long size = ch.size();
             String line = d.readHeaderLine(ch, 0);
 
@@ -123,7 +123,7 @@ class HeaderLineDecoderTest {
 
         HeaderLineDecoder d = new HeaderLineDecoder(StandardCharsets.UTF_8, endChars(), 8);
 
-        try (FileChannel ch = openRead(fasta)) {
+        try (SeekableByteReader ch = openRead(fasta)) {
             long size = ch.size();
             assertNull(d.readHeaderLine(ch, size), "from == fileSize should return null");
             assertNull(d.readHeaderLine(ch, size + 10), "from > fileSize should return null");
@@ -139,7 +139,7 @@ class HeaderLineDecoderTest {
 
         HeaderLineDecoder d = new HeaderLineDecoder(StandardCharsets.UTF_8, endChars(), 4);
 
-        try (FileChannel ch = openRead(fasta)) {
+        try (SeekableByteReader ch = openRead(fasta)) {
             String first = d.readHeaderLine(ch, 0);
             assertEquals(">first", first);
             long secondFrom = ch.position();
@@ -156,7 +156,7 @@ class HeaderLineDecoderTest {
 
         HeaderLineDecoder d = new HeaderLineDecoder(StandardCharsets.UTF_8, endChars(), 8);
 
-        try (FileChannel ch = openRead(fasta)) {
+        try (SeekableByteReader ch = openRead(fasta)) {
             assertThrows(CharacterCodingException.class, () -> d.readHeaderLine(ch, 0));
         }
     }
