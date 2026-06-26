@@ -184,7 +184,7 @@ class BgzfByteReaderTest {
     @Test
     void detectShortFile() throws IOException {
         Path p = tmp.resolve("one.txt");
-        Files.write(p, new byte[]{0x1f});
+        Files.write(p, new byte[] {0x1f});
         assertEquals(BgzfDetector.Compression.UNCOMPRESSED, BgzfDetector.detect(p.toFile()));
     }
 
@@ -193,13 +193,22 @@ class BgzfByteReaderTest {
         // Write a minimal gzip with FEXTRA but an extra field that contains no BC subfield
         Path p = tmp.resolve("fextra_no_bc.gz");
         byte[] header = {
-            0x1f, (byte)0x8b,  // ID1 ID2
-            0x08,              // CM = deflate
-            0x04,              // FLG = FEXTRA
-            0,0,0,0,           // MTIME
-            0, (byte)0xff,     // XFL, OS
-            0x04, 0x00,        // XLEN = 4
-            0x41, 0x42, 0x02, 0x00  // extra: SI1='A' SI2='B' SLEN=0 (not BC)
+            0x1f,
+            (byte) 0x8b, // ID1 ID2
+            0x08, // CM = deflate
+            0x04, // FLG = FEXTRA
+            0,
+            0,
+            0,
+            0, // MTIME
+            0,
+            (byte) 0xff, // XFL, OS
+            0x04,
+            0x00, // XLEN = 4
+            0x41,
+            0x42,
+            0x02,
+            0x00 // extra: SI1='A' SI2='B' SLEN=0 (not BC)
         };
         Files.write(p, header);
         assertEquals(BgzfDetector.Compression.PLAIN_GZIP, BgzfDetector.detect(p.toFile()));
@@ -210,13 +219,30 @@ class BgzfByteReaderTest {
         // Put a non-BC subfield before the BC subfield
         Path p = tmp.resolve("bc_second.gz");
         byte[] header = {
-            0x1f, (byte)0x8b, 0x08, 0x04,
-            0,0,0,0, 0, (byte)0xff,
-            0x0a, 0x00,  // XLEN = 10
+            0x1f,
+            (byte) 0x8b,
+            0x08,
+            0x04,
+            0,
+            0,
+            0,
+            0,
+            0,
+            (byte) 0xff,
+            0x0a,
+            0x00, // XLEN = 10
             // subfield 1: SI1='X' SI2='Y' SLEN=2 DATA=0000
-            0x58, 0x59, 0x02, 0x00, 0x00, 0x00,
+            0x58,
+            0x59,
+            0x02,
+            0x00,
+            0x00,
+            0x00,
             // subfield 2: BC SLEN=2 BSIZE=27
-            0x42, 0x43, 0x02, 0x00
+            0x42,
+            0x43,
+            0x02,
+            0x00
             // (BSIZE bytes omitted — detector only checks for subfield presence, not reads BSIZE)
         };
         // detector reads extra and calls hasBgzfSubfield, which scans all subfields
@@ -233,8 +259,7 @@ class BgzfByteReaderTest {
         File f = tmp.resolve("crc.bgzf").toFile();
         Files.write(f.toPath(), corrupt);
         try (BgzfByteReader reader = new BgzfByteReader(f)) {
-            IOException e = assertThrows(IOException.class,
-                    () -> reader.read(ByteBuffer.allocate(payload.length), 0));
+            IOException e = assertThrows(IOException.class, () -> reader.read(ByteBuffer.allocate(payload.length), 0));
             assertTrue(e.getMessage().toLowerCase().contains("crc32"));
         }
     }
@@ -261,10 +286,26 @@ class BgzfByteReaderTest {
     @Test
     void truncatedFileThrowsIoException() throws IOException {
         byte[] payload = "ACGTACGTACGT".getBytes(StandardCharsets.US_ASCII);
-        byte[] corrupt = BgzfTestWriter.toBgzfTruncated(payload, payload.length);
+        byte[] corrupt = BgzfTestWriter.toBgzfTruncated(payload);
         File f = tmp.resolve("trunc.bgzf").toFile();
         Files.write(f.toPath(), corrupt);
         assertThrows(IOException.class, () -> new BgzfByteReader(f));
+    }
+
+    @Test
+    void corruptCrcOfSecondBlockThrowsIoException() throws IOException {
+        // 30 bytes / 10-byte blocks = 3 data blocks; corrupt block index 1
+        byte[] payload = "ACGTACGTACGTACGTACGTACGTACGTAC".getBytes(StandardCharsets.US_ASCII);
+        byte[] corrupt = BgzfTestWriter.toBgzfCorruptCrcOfBlock(payload, 10, 1);
+        File f = tmp.resolve("crc2.bgzf").toFile();
+        Files.write(f.toPath(), corrupt);
+        try (BgzfByteReader reader = new BgzfByteReader(f)) {
+            ByteBuffer buf0 = ByteBuffer.allocate(10);
+            reader.read(buf0, 0); // block 0 intact — must succeed
+            IOException e =
+                    assertThrows(IOException.class, () -> reader.read(ByteBuffer.allocate(10), 10)); // block 1 corrupt
+            assertTrue(e.getMessage().toLowerCase().contains("crc32"));
+        }
     }
 
     // ---- SeekableByteReaderFactory branches ----
@@ -325,7 +366,7 @@ class BgzfByteReaderTest {
     @Test
     void fileChannelByteReaderCloseIsIdempotent() throws IOException {
         Path p = tmp.resolve("fccl.txt");
-        Files.write(p, new byte[]{1, 2, 3});
+        Files.write(p, new byte[] {1, 2, 3});
         FileChannelByteReader r = new FileChannelByteReader(p.toFile());
         assertTrue(r.isOpen());
         r.close();

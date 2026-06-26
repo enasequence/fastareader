@@ -87,13 +87,20 @@ public final class FastaReader implements AutoCloseable, SequenceFormatReader {
     }
 
     private void initAndLoad(File fastaFile) throws FastaFileException, IOException {
-        this.reader = new InternalReader(fastaFile, this.alphabet, FILE_FORMAT, openAndValidateUtf8(fastaFile));
+        SeekableByteReader byteReader = openAndValidateUtf8(fastaFile);
+        boolean success = false;
         try {
+            this.reader = new InternalReader(fastaFile, this.alphabet, FILE_FORMAT, byteReader);
             loadEntries();
-        } catch (FastaFileException | IOException e) {
-            try { reader.close(); } catch (IOException ignored) {}
-            reader = null;
-            throw e;
+            success = true;
+        } finally {
+            if (!success) {
+                try {
+                    byteReader.close();
+                } catch (IOException ignored) {
+                }
+                reader = null;
+            }
         }
     }
 
@@ -108,18 +115,27 @@ public final class FastaReader implements AutoCloseable, SequenceFormatReader {
             HashMap<Long, String> headerLines)
             throws FastaFileException, IOException {
         this.file = Objects.requireNonNull(fastaFile, "sequenceFile");
-
+        Objects.requireNonNull(indexes, "indexes");
         resetData();
         this.alphabet = alphabet;
-        this.reader = new InternalReader(fastaFile, this.alphabet, FILE_FORMAT, openAndValidateUtf8(fastaFile));
-
-        this.orderedIds = indexes.keySet().stream()
-                .sorted() // sort by ascending
-                .collect(Collectors.toList());
-
-        this.sequenceIndexesMap = indexes;
-        setUpSequenceStatsFromIndexes();
-        this.headerLinesMap = headerLines == null ? new HashMap<>() : headerLines;
+        SeekableByteReader byteReader = openAndValidateUtf8(fastaFile);
+        boolean success = false;
+        try {
+            this.reader = new InternalReader(fastaFile, this.alphabet, FILE_FORMAT, byteReader);
+            this.orderedIds = indexes.keySet().stream().sorted().collect(Collectors.toList());
+            this.sequenceIndexesMap = indexes;
+            setUpSequenceStatsFromIndexes();
+            this.headerLinesMap = headerLines == null ? new HashMap<>() : headerLines;
+            success = true;
+        } finally {
+            if (!success) {
+                try {
+                    byteReader.close();
+                } catch (IOException ignored) {
+                }
+                reader = null;
+            }
+        }
     }
 
     @Override
@@ -243,11 +259,10 @@ public final class FastaReader implements AutoCloseable, SequenceFormatReader {
     // ---------------------------- interactions with the reader ----------------------------
 
     public void openNewFile(File fastaFile) throws FastaFileException, IOException {
-        close(); // if already open, close first
+        close();
         this.file = Objects.requireNonNull(fastaFile, "file");
-        this.reader =
-                new InternalReader(fastaFile, this.alphabet, SequenceFileFormat.FASTA, openAndValidateUtf8(fastaFile));
-        loadEntries();
+        resetData();
+        initAndLoad(fastaFile);
     }
 
     @Override

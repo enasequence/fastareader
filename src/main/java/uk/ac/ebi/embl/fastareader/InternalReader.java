@@ -279,7 +279,8 @@ class InternalReader implements AutoCloseable {
     private boolean isLineStart(long abs) throws IOException {
         if (abs == 0) return true;
         if (abs > fileSize) return false;
-        return peek(abs - 1) == LF;
+        byte prev = peek(abs - 1);
+        return prev == LF || prev == CR;
     }
 
     private byte peek(long abs) throws IOException {

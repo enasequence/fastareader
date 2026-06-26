@@ -104,13 +104,24 @@ public final class BgzfTestWriter {
     public static byte[] toBgzfShortBcXlen() {
         ByteArrayOutputStream out = new ByteArrayOutputStream();
         // gzip header: ID1 ID2 CM FLG MTIME(4) XFL OS
-        out.write(0x1f); out.write(0x8b); out.write(0x08); out.write(0x04);
-        out.write(0); out.write(0); out.write(0); out.write(0);
-        out.write(0); out.write(0xff);
+        out.write(0x1f);
+        out.write(0x8b);
+        out.write(0x08);
+        out.write(0x04);
+        out.write(0);
+        out.write(0);
+        out.write(0);
+        out.write(0);
+        out.write(0);
+        out.write(0xff);
         // XLEN = 5 (only one byte of BSIZE fits)
-        out.write(5); out.write(0);
+        out.write(5);
+        out.write(0);
         // extra: SI1='B' SI2='C' SLEN=2 + 1 byte of BSIZE (truncated)
-        out.write(0x42); out.write(0x43); out.write(0x02); out.write(0x00);
+        out.write(0x42);
+        out.write(0x43);
+        out.write(0x02);
+        out.write(0x00);
         out.write(0xFF);
         // append EOF block so file has more than the header
         for (byte b : EOF_BLOCK) out.write(b & 0xFF);
@@ -118,11 +129,43 @@ public final class BgzfTestWriter {
     }
 
     /**
-     * Returns BGZF bytes truncated to half their length, triggering premature-EOF detection.
+     * Returns BGZF bytes truncated to 10 bytes, always landing mid-gzip-header (headers need ≥18
+     * bytes), so {@code BgzfByteReader} always hits a premature-EOF error regardless of payload.
      */
-    public static byte[] toBgzfTruncated(byte[] data, int blockSize) throws IOException {
+    public static byte[] toBgzfTruncated(byte[] data) throws IOException {
+        byte[] bytes = toBgzf(data, Math.max(data.length, 1));
+        return Arrays.copyOf(bytes, 10);
+    }
+
+    /**
+     * Returns BGZF bytes with the CRC32 of the {@code blockIndex}-th data block (0-based) flipped,
+     * leaving all other blocks intact so only reads touching that block throw.
+     */
+    public static byte[] toBgzfCorruptCrcOfBlock(byte[] data, int blockSize, int blockIndex) throws IOException {
         byte[] bytes = toBgzf(data, blockSize);
-        return Arrays.copyOf(bytes, bytes.length / 2);
+        int offset = 0;
+        for (int i = 0; i <= blockIndex; i++) {
+            int xlen = (bytes[offset + 10] & 0xFF) | ((bytes[offset + 11] & 0xFF) << 8);
+            int bsize = -1;
+            for (int pos = 0; pos + 4 <= xlen; ) {
+                int si1 = bytes[offset + 12 + pos] & 0xFF;
+                int si2 = bytes[offset + 12 + pos + 1] & 0xFF;
+                int slen = (bytes[offset + 12 + pos + 2] & 0xFF) | ((bytes[offset + 12 + pos + 3] & 0xFF) << 8);
+                if (si1 == 0x42 && si2 == 0x43 && slen == 2) {
+                    bsize = (bytes[offset + 12 + pos + 4] & 0xFF) | ((bytes[offset + 12 + pos + 5] & 0xFF) << 8);
+                    break;
+                }
+                pos += 4 + slen;
+            }
+            if (bsize < 0) throw new IllegalStateException("no BC subfield at block " + i);
+            int thisBlockSize = bsize + 1;
+            if (i == blockIndex) {
+                bytes[offset + thisBlockSize - 8] ^= 0xFF;
+                return bytes;
+            }
+            offset += thisBlockSize;
+        }
+        throw new IllegalArgumentException("not enough blocks");
     }
 
     /** Compresses {@code data} into BGZF bytes using the given uncompressed block size. */

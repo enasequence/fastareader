@@ -12,7 +12,6 @@ package uk.ac.ebi.embl.fastareader.sequenceutils;
 
 import java.io.IOException;
 import java.nio.ByteBuffer;
-import java.nio.charset.StandardCharsets;
 import java.util.ArrayList;
 import java.util.List;
 import java.util.Optional;
@@ -254,7 +253,6 @@ public final class SequenceIndexBuilder {
 
             if (n <= 0) break;
             buf.flip();
-            String s = StandardCharsets.US_ASCII.decode(buf).toString();
             for (int i = n - 1; i > -1; i--) { // read from the back
                 byte b = buf.get(i);
                 if (alphabet.isNBase(b)) trailing++;

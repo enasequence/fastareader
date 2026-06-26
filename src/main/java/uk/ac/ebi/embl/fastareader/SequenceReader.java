@@ -81,13 +81,20 @@ public class SequenceReader implements AutoCloseable {
     }
 
     private void initAndLoad(File file) throws SequenceFileException, IOException {
-        this.reader = new InternalReader(file, this.sequenceAlphabet, FILE_FORMAT, openAndValidateUtf8(file));
+        SeekableByteReader byteReader = openAndValidateUtf8(file);
+        boolean success = false;
         try {
+            this.reader = new InternalReader(file, this.sequenceAlphabet, FILE_FORMAT, byteReader);
             loadSequence();
-        } catch (SequenceFileException | IOException e) {
-            try { reader.close(); } catch (IOException ignored) {}
-            reader = null;
-            throw e;
+            success = true;
+        } finally {
+            if (!success) {
+                try {
+                    byteReader.close();
+                } catch (IOException ignored) {
+                }
+                reader = null;
+            }
         }
     }
 
@@ -96,15 +103,25 @@ public class SequenceReader implements AutoCloseable {
      * */
     public SequenceReader(File file, SequenceAlphabet sequenceAlphabet, SequenceIndex sequenceIndex)
             throws SequenceFileException, IOException {
-
         this.file = Objects.requireNonNull(file, "sequenceFile");
-
         resetData();
         this.sequenceAlphabet = sequenceAlphabet;
-        this.reader = new InternalReader(file, this.sequenceAlphabet, FILE_FORMAT, openAndValidateUtf8(file));
-
-        this.sequenceIndex = sequenceIndex;
-        setUpSequenceStatsFromIndex();
+        SeekableByteReader byteReader = openAndValidateUtf8(file);
+        boolean success = false;
+        try {
+            this.reader = new InternalReader(file, this.sequenceAlphabet, FILE_FORMAT, byteReader);
+            this.sequenceIndex = sequenceIndex;
+            setUpSequenceStatsFromIndex();
+            success = true;
+        } finally {
+            if (!success) {
+                try {
+                    byteReader.close();
+                } catch (IOException ignored) {
+                }
+                reader = null;
+            }
+        }
     }
 
     // ---------------------------- queries ----------------------------
@@ -177,11 +194,10 @@ public class SequenceReader implements AutoCloseable {
     }
 
     public void openNewFile(File sequenceFile) throws SequenceFileException, IOException {
-        close(); // if already open, close first
+        close();
         this.file = Objects.requireNonNull(sequenceFile, "file");
-        this.reader =
-                new InternalReader(sequenceFile, this.sequenceAlphabet, FILE_FORMAT, openAndValidateUtf8(sequenceFile));
-        loadSequence();
+        resetData();
+        initAndLoad(sequenceFile);
     }
 
     /** Close the reader. Safe to call multiple times. */
