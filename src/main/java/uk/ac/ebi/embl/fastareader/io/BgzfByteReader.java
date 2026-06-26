@@ -136,6 +136,9 @@ public final class BgzfByteReader implements SeekableByteReader {
                     | ((tail[5] & 0xFFL) << 8)
                     | ((tail[6] & 0xFFL) << 16)
                     | ((tail[7] & 0xFFL) << 24);
+            if (isize > 65536) {
+                throw new IOException("Malformed BGZF: ISIZE " + isize + " exceeds 65536 at compressed offset " + compressedOffset);
+            }
 
             if (isize > 0) {
                 directory.add(new long[] {compressedOffset, uncompressedStart, isize, blockSize, dataOffset, crc32});
@@ -154,6 +157,9 @@ public final class BgzfByteReader implements SeekableByteReader {
             int si2 = extra[pos + 1] & 0xFF;
             int slen = (extra[pos + 2] & 0xFF) | ((extra[pos + 3] & 0xFF) << 8);
             if (si1 == BGZF_SI1 && si2 == BGZF_SI2 && slen == 2) {
+                if (pos + 6 > xlen) {
+                    throw new IOException("Malformed BGZF: BC subfield truncated at compressed offset " + compressedOffset);
+                }
                 return (extra[pos + 4] & 0xFF) | ((extra[pos + 5] & 0xFF) << 8);
             }
             pos += 4 + slen;

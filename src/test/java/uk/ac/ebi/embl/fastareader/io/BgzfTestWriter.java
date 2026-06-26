@@ -15,6 +15,7 @@ import java.io.File;
 import java.io.IOException;
 import java.nio.file.Files;
 import java.nio.file.Path;
+import java.util.Arrays;
 import java.util.zip.CRC32;
 import java.util.zip.Deflater;
 
@@ -68,6 +69,61 @@ public final class BgzfTestWriter {
     };
 
     private BgzfTestWriter() {}
+
+    /**
+     * Returns valid BGZF bytes (single block) with the CRC32 of that block corrupted.
+     * Triggers the CRC32 check in {@code BgzfByteReader.inflateBlock}.
+     */
+    public static byte[] toBgzfCorruptCrc(byte[] data) throws IOException {
+        byte[] bytes = toBgzf(data, Math.max(data.length, 1));
+        int blockEnd = bytes.length - EOF_BLOCK.length;
+        bytes[blockEnd - 8] ^= 0xFF;
+        return bytes;
+    }
+
+    /**
+     * Returns valid BGZF bytes (single block) with the ISIZE trailer set to 65537,
+     * triggering the oversized-ISIZE guard in {@code BgzfByteReader.buildDirectory}.
+     */
+    public static byte[] toBgzfOversizedIsize(byte[] data) throws IOException {
+        byte[] bytes = toBgzf(data, Math.max(data.length, 1));
+        int blockEnd = bytes.length - EOF_BLOCK.length;
+        // 65537 = 0x00010001 in little-endian
+        bytes[blockEnd - 4] = 0x01;
+        bytes[blockEnd - 3] = 0x00;
+        bytes[blockEnd - 2] = 0x01;
+        bytes[blockEnd - 1] = 0x00;
+        return bytes;
+    }
+
+    /**
+     * Returns a hand-crafted byte array that passes {@link BgzfDetector} (BC subfield header
+     * present) but fails {@code BgzfByteReader.findBsize} because XLEN is too small to hold
+     * both bytes of the BSIZE value (bug-1 reproducer).
+     */
+    public static byte[] toBgzfShortBcXlen() {
+        ByteArrayOutputStream out = new ByteArrayOutputStream();
+        // gzip header: ID1 ID2 CM FLG MTIME(4) XFL OS
+        out.write(0x1f); out.write(0x8b); out.write(0x08); out.write(0x04);
+        out.write(0); out.write(0); out.write(0); out.write(0);
+        out.write(0); out.write(0xff);
+        // XLEN = 5 (only one byte of BSIZE fits)
+        out.write(5); out.write(0);
+        // extra: SI1='B' SI2='C' SLEN=2 + 1 byte of BSIZE (truncated)
+        out.write(0x42); out.write(0x43); out.write(0x02); out.write(0x00);
+        out.write(0xFF);
+        // append EOF block so file has more than the header
+        for (byte b : EOF_BLOCK) out.write(b & 0xFF);
+        return out.toByteArray();
+    }
+
+    /**
+     * Returns BGZF bytes truncated to half their length, triggering premature-EOF detection.
+     */
+    public static byte[] toBgzfTruncated(byte[] data, int blockSize) throws IOException {
+        byte[] bytes = toBgzf(data, blockSize);
+        return Arrays.copyOf(bytes, bytes.length / 2);
+    }
 
     /** Compresses {@code data} into BGZF bytes using the given uncompressed block size. */
     public static byte[] toBgzf(byte[] data, int blockSize) throws IOException {

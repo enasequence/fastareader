@@ -105,4 +105,231 @@ class BgzfByteReaderTest {
             assertEquals(5, reader.position(), "positional read must not move the cursor");
         }
     }
+
+    // ---- BgzfByteReader contract tests ----
+
+    @Test
+    void emptyBgzfReturnsMinusOne() throws IOException {
+        File bgzf = BgzfTestWriter.writeBgzfFile(tmp.resolve("empty.bgzf"), new byte[0], BgzfTestWriter.MAX_BLOCK_SIZE);
+        try (BgzfByteReader reader = new BgzfByteReader(bgzf)) {
+            assertEquals(0, reader.size());
+            assertEquals(-1, reader.read(ByteBuffer.allocate(1), 0));
+        }
+    }
+
+    @Test
+    void readAtEofReturnsMinusOne() throws IOException {
+        byte[] payload = "ACGT".getBytes(StandardCharsets.US_ASCII);
+        File bgzf = BgzfTestWriter.writeBgzfFile(tmp.resolve("eof.bgzf"), payload, 64);
+        try (BgzfByteReader reader = new BgzfByteReader(bgzf)) {
+            assertEquals(-1, reader.read(ByteBuffer.allocate(1), payload.length));
+            assertEquals(-1, reader.read(ByteBuffer.allocate(1), payload.length + 100));
+        }
+    }
+
+    @Test
+    void readAfterCloseThrows() throws IOException {
+        byte[] payload = "ACGT".getBytes(StandardCharsets.US_ASCII);
+        File bgzf = BgzfTestWriter.writeBgzfFile(tmp.resolve("closed.bgzf"), payload, 64);
+        BgzfByteReader reader = new BgzfByteReader(bgzf);
+        reader.close();
+        assertFalse(reader.isOpen());
+        assertThrows(IOException.class, () -> reader.read(ByteBuffer.allocate(1), 0));
+    }
+
+    @Test
+    void negativePositionThrows() throws IOException {
+        byte[] payload = "ACGT".getBytes(StandardCharsets.US_ASCII);
+        File bgzf = BgzfTestWriter.writeBgzfFile(tmp.resolve("neg.bgzf"), payload, 64);
+        try (BgzfByteReader reader = new BgzfByteReader(bgzf)) {
+            assertThrows(IllegalArgumentException.class, () -> reader.read(ByteBuffer.allocate(1), -1));
+            assertThrows(IllegalArgumentException.class, () -> reader.position(-1));
+        }
+    }
+
+    @Test
+    void lruEvictionWithMoreThan16Blocks() throws IOException {
+        // 20 blocks of 10 bytes each = 200 bytes total; cache holds 16, so eviction occurs
+        Random rnd = new Random(7);
+        byte[] payload = new byte[200];
+        for (int i = 0; i < payload.length; i++) payload[i] = (byte) ('A' + rnd.nextInt(5));
+        File bgzf = BgzfTestWriter.writeBgzfFile(tmp.resolve("lru.bgzf"), payload, 10);
+
+        try (BgzfByteReader reader = new BgzfByteReader(bgzf)) {
+            // forward pass
+            byte[] fwd = new byte[payload.length];
+            ByteBuffer buf = ByteBuffer.wrap(fwd);
+            int n = reader.read(buf, 0);
+            assertEquals(payload.length, n);
+            assertArrayEquals(payload, fwd);
+
+            // backward random-access (forces cache misses / re-inflation after eviction)
+            for (int i = payload.length - 1; i >= 0; i--) {
+                ByteBuffer one = ByteBuffer.allocate(1);
+                reader.read(one, i);
+                assertEquals(payload[i], one.get(0));
+            }
+        }
+    }
+
+    // ---- BgzfDetector edge cases ----
+
+    @Test
+    void detectEmptyFile() throws IOException {
+        File empty = tmp.resolve("empty.txt").toFile();
+        empty.createNewFile();
+        assertEquals(BgzfDetector.Compression.UNCOMPRESSED, BgzfDetector.detect(empty));
+    }
+
+    @Test
+    void detectShortFile() throws IOException {
+        Path p = tmp.resolve("one.txt");
+        Files.write(p, new byte[]{0x1f});
+        assertEquals(BgzfDetector.Compression.UNCOMPRESSED, BgzfDetector.detect(p.toFile()));
+    }
+
+    @Test
+    void detectFextraWithoutBcIsPlainGzip() throws IOException {
+        // Write a minimal gzip with FEXTRA but an extra field that contains no BC subfield
+        Path p = tmp.resolve("fextra_no_bc.gz");
+        byte[] header = {
+            0x1f, (byte)0x8b,  // ID1 ID2
+            0x08,              // CM = deflate
+            0x04,              // FLG = FEXTRA
+            0,0,0,0,           // MTIME
+            0, (byte)0xff,     // XFL, OS
+            0x04, 0x00,        // XLEN = 4
+            0x41, 0x42, 0x02, 0x00  // extra: SI1='A' SI2='B' SLEN=0 (not BC)
+        };
+        Files.write(p, header);
+        assertEquals(BgzfDetector.Compression.PLAIN_GZIP, BgzfDetector.detect(p.toFile()));
+    }
+
+    @Test
+    void detectBcNotFirstSubfieldIsStillBgzf() throws IOException {
+        // Put a non-BC subfield before the BC subfield
+        Path p = tmp.resolve("bc_second.gz");
+        byte[] header = {
+            0x1f, (byte)0x8b, 0x08, 0x04,
+            0,0,0,0, 0, (byte)0xff,
+            0x0a, 0x00,  // XLEN = 10
+            // subfield 1: SI1='X' SI2='Y' SLEN=2 DATA=0000
+            0x58, 0x59, 0x02, 0x00, 0x00, 0x00,
+            // subfield 2: BC SLEN=2 BSIZE=27
+            0x42, 0x43, 0x02, 0x00
+            // (BSIZE bytes omitted — detector only checks for subfield presence, not reads BSIZE)
+        };
+        // detector reads extra and calls hasBgzfSubfield, which scans all subfields
+        Files.write(p, header);
+        assertEquals(BgzfDetector.Compression.BGZF, BgzfDetector.detect(p.toFile()));
+    }
+
+    // ---- Corrupt BGZF error paths ----
+
+    @Test
+    void corruptCrcThrowsIoException() throws IOException {
+        byte[] payload = "ACGTACGT".getBytes(StandardCharsets.US_ASCII);
+        byte[] corrupt = BgzfTestWriter.toBgzfCorruptCrc(payload);
+        File f = tmp.resolve("crc.bgzf").toFile();
+        Files.write(f.toPath(), corrupt);
+        try (BgzfByteReader reader = new BgzfByteReader(f)) {
+            IOException e = assertThrows(IOException.class,
+                    () -> reader.read(ByteBuffer.allocate(payload.length), 0));
+            assertTrue(e.getMessage().toLowerCase().contains("crc32"));
+        }
+    }
+
+    @Test
+    void oversizedIsizeThrowsIoException() throws IOException {
+        byte[] payload = "ACGTACGT".getBytes(StandardCharsets.US_ASCII);
+        byte[] corrupt = BgzfTestWriter.toBgzfOversizedIsize(payload);
+        File f = tmp.resolve("isize.bgzf").toFile();
+        Files.write(f.toPath(), corrupt);
+        IOException e = assertThrows(IOException.class, () -> new BgzfByteReader(f));
+        assertTrue(e.getMessage().contains("ISIZE"));
+    }
+
+    @Test
+    void shortBcXlenThrowsIoException() throws IOException {
+        byte[] corrupt = BgzfTestWriter.toBgzfShortBcXlen();
+        File f = tmp.resolve("shortbc.bgzf").toFile();
+        Files.write(f.toPath(), corrupt);
+        IOException e = assertThrows(IOException.class, () -> new BgzfByteReader(f));
+        assertTrue(e.getMessage().toLowerCase().contains("truncated"));
+    }
+
+    @Test
+    void truncatedFileThrowsIoException() throws IOException {
+        byte[] payload = "ACGTACGTACGT".getBytes(StandardCharsets.US_ASCII);
+        byte[] corrupt = BgzfTestWriter.toBgzfTruncated(payload, payload.length);
+        File f = tmp.resolve("trunc.bgzf").toFile();
+        Files.write(f.toPath(), corrupt);
+        assertThrows(IOException.class, () -> new BgzfByteReader(f));
+    }
+
+    // ---- SeekableByteReaderFactory branches ----
+
+    @Test
+    void factoryOpensBgzfFile() throws IOException {
+        byte[] payload = "ACGT".getBytes(StandardCharsets.US_ASCII);
+        File bgzf = BgzfTestWriter.writeBgzfFile(tmp.resolve("fac.bgzf"), payload, 64);
+        try (var reader = SeekableByteReaderFactory.open(bgzf)) {
+            assertTrue(reader instanceof BgzfByteReader);
+            assertEquals(payload.length, reader.size());
+        }
+    }
+
+    @Test
+    void factoryOpensUncompressedFile() throws IOException {
+        Path p = tmp.resolve("plain.txt");
+        Files.write(p, "ACGT".getBytes(StandardCharsets.US_ASCII));
+        try (var reader = SeekableByteReaderFactory.open(p.toFile())) {
+            assertTrue(reader instanceof FileChannelByteReader);
+            assertEquals(4, reader.size());
+        }
+    }
+
+    // ---- FileChannelByteReader ----
+
+    @Test
+    void fileChannelByteReaderBasicRead() throws IOException {
+        byte[] content = "ACGTNN".getBytes(StandardCharsets.US_ASCII);
+        Path p = tmp.resolve("fc.txt");
+        Files.write(p, content);
+        try (FileChannelByteReader r = new FileChannelByteReader(p.toFile())) {
+            assertEquals(content.length, r.size());
+            assertTrue(r.isOpen());
+            ByteBuffer buf = ByteBuffer.allocate(content.length);
+            int n = r.read(buf, 0);
+            assertEquals(content.length, n);
+            assertArrayEquals(content, buf.array());
+        }
+    }
+
+    @Test
+    void fileChannelByteReaderPositionAndSeek() throws IOException {
+        byte[] content = "0123456789".getBytes(StandardCharsets.US_ASCII);
+        Path p = tmp.resolve("fcpos.txt");
+        Files.write(p, content);
+        try (FileChannelByteReader r = new FileChannelByteReader(p.toFile())) {
+            r.position(3);
+            assertEquals(3, r.position());
+            ByteBuffer buf = ByteBuffer.allocate(4);
+            int n = r.read(buf, 3);
+            assertEquals(4, n);
+            buf.flip();
+            assertEquals("3456", StandardCharsets.US_ASCII.decode(buf).toString());
+        }
+    }
+
+    @Test
+    void fileChannelByteReaderCloseIsIdempotent() throws IOException {
+        Path p = tmp.resolve("fccl.txt");
+        Files.write(p, new byte[]{1, 2, 3});
+        FileChannelByteReader r = new FileChannelByteReader(p.toFile());
+        assertTrue(r.isOpen());
+        r.close();
+        assertFalse(r.isOpen());
+        r.close(); // must not throw
+    }
 }

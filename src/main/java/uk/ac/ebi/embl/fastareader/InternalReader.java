@@ -17,7 +17,6 @@ import java.util.*;
 import uk.ac.ebi.embl.fastareader.exception.SequenceReadingException;
 import uk.ac.ebi.embl.fastareader.headerutils.HeaderLineDecoder;
 import uk.ac.ebi.embl.fastareader.io.SeekableByteReader;
-import uk.ac.ebi.embl.fastareader.io.SeekableByteReaderFactory;
 import uk.ac.ebi.embl.fastareader.sequenceutils.*;
 
 class InternalReader implements AutoCloseable {
@@ -33,14 +32,6 @@ class InternalReader implements AutoCloseable {
     private final SequenceAlphabet alphabet;
     private final SequenceFileFormat fileFormat;
     HeaderLineDecoder headerLineDecoder;
-
-    InternalReader(File file, SequenceFileFormat fileFormat) throws IOException {
-        this(file, SequenceAlphabet.defaultNucleotideAlphabet(), fileFormat);
-    }
-
-    InternalReader(File file, SequenceAlphabet alphabet, SequenceFileFormat fileFormat) throws IOException {
-        this(file, alphabet, fileFormat, SeekableByteReaderFactory.open(file));
-    }
 
     InternalReader(File file, SequenceAlphabet alphabet, SequenceFileFormat fileFormat, SeekableByteReader reader)
             throws IOException {
