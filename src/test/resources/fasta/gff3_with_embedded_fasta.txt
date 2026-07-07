@@ -1,0 +1,16 @@
+##gff-version 3
+##sequence-region ID1 1 12
+ID1	ena	gene	1	12	.	+	.	ID=gene1;Name=example
+ID1	ena	CDS	3	10	.	+	0	ID=cds1;Parent=gene1
+##sequence-region ID2 1 8
+ID2	ena	gene	1	8	.	+	.	ID=gene2;Name=example2
+##FASTA
+>ID1 | {"description":"x", "molecule_type":"dna", "topology":"linear"}
+NNAC
+ACGT
+
+TTNn
+
+>ID2 | {"description":"x", "molecule_type":"dna", "topology":"circular"}
+ACGT
+GGGG

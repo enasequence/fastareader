@@ -183,7 +183,27 @@ class InternalReader implements AutoCloseable {
     }
 
     List<SequenceEntryMetadata> readFile() throws SequenceReadingException, IOException {
-        long position = 0;
+        return readFile(0L);
+    }
+
+    /**
+     * Scans the file starting at {@code startByteOffset}, ignoring any bytes before it.
+     *
+     * <p>This supports partial files where the sequence content does not begin at byte 0 — for example a
+     * GFF3 file whose leading annotation lines are followed by an embedded FASTA section. The caller is
+     * responsible for supplying the byte offset at (or before) which the FASTA content starts; header
+     * detection still requires a {@code '>'} at the start of a line, so an offset that lands on preceding
+     * non-FASTA lines is tolerated (those lines are skipped).
+     *
+     * @param startByteOffset absolute byte offset to begin scanning from (0 = whole file); must be within
+     *     {@code [0, fileSize]}
+     */
+    List<SequenceEntryMetadata> readFile(long startByteOffset) throws SequenceReadingException, IOException {
+        if (startByteOffset < 0 || startByteOffset > fileSize) {
+            throw new SequenceReadingException(
+                    "startByteOffset " + startByteOffset + " is out of bounds for file of size " + fileSize);
+        }
+        long position = startByteOffset;
         List<SequenceEntryMetadata> entries = new ArrayList<>();
 
         switch (fileFormat) {

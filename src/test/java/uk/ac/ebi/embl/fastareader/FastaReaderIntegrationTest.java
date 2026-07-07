@@ -14,10 +14,13 @@ import static org.junit.jupiter.api.Assertions.*;
 
 import java.io.File;
 import java.io.IOException;
+import java.nio.charset.StandardCharsets;
+import java.nio.file.Files;
 import java.util.List;
 import org.junit.jupiter.api.Test;
 import uk.ac.ebi.embl.fastareader.exception.FastaFileException;
 import uk.ac.ebi.embl.fastareader.sequenceutils.GapRegion;
+import uk.ac.ebi.embl.fastareader.sequenceutils.SequenceAlphabet;
 
 class FastaReaderIntegrationTest {
 
@@ -132,6 +135,79 @@ class FastaReaderIntegrationTest {
                             + "AAAAAAAAAAAA",
                     sequence2withoutNbases);
         }
+    }
+
+    @Test
+    void readsEmbeddedFastaFromExplicitByteOffset() throws Exception {
+        // A GFF3 file: leading annotation lines followed by an embedded FASTA section whose bytes are
+        // identical to fasta/example.txt. Starting the scan at the offset of the first '>' header must
+        // yield exactly the same entries as reading example.txt from byte 0.
+        File gff3 = TestResources.file("fasta", "gff3_with_embedded_fasta.txt");
+        byte[] bytes = Files.readAllBytes(gff3.toPath());
+        long fastaOffset = indexOf(bytes, ">ID1".getBytes(StandardCharsets.UTF_8));
+        assertTrue(fastaOffset > 0, "embedded FASTA must not start at byte 0");
+
+        try (FastaReader service = new FastaReader(gff3, SequenceAlphabet.defaultNucleotideAlphabet(), fastaOffset)) {
+            assertEquals(List.of(0L, 1L), service.getOrderedIds());
+
+            assertEquals(
+                    ">ID1 | {\"description\":\"x\", \"molecule_type\":\"dna\", \"topology\":\"linear\"}",
+                    service.getHeaderline(0L).orElseThrow());
+            assertEquals(
+                    ">ID2 | {\"description\":\"x\", \"molecule_type\":\"dna\", \"topology\":\"circular\"}",
+                    service.getHeaderline(1L).orElseThrow());
+
+            SequenceStats entry1 = service.getStats(0L);
+            assertEquals(2, entry1.leadingNsCount(), "ID1 leading Ns");
+            assertEquals(2, entry1.trailingNsCount(), "ID1 trailing Ns");
+
+            assertEquals(
+                    "NNACACGTTTNN",
+                    service.getSequenceSlice(0L, 1, entry1.totalBases(), SequenceRangeOption.WHOLE_SEQUENCE));
+            assertEquals(List.of(new GapRegion(1, 2), new GapRegion(11, 12)), service.getGapRegions(0L));
+            assertEquals(
+                    "ACGTGGGG",
+                    service.getSequenceSlice(
+                            1L, 1, service.getStats(1L).totalBases(), SequenceRangeOption.WHOLE_SEQUENCE));
+        }
+    }
+
+    @Test
+    void tolerantOfOffsetLandingOnNonHeaderPrefixLine() throws Exception {
+        // An offset that lands on the '##FASTA' directive line (before the first '>' header) is tolerated:
+        // preceding non-header lines are skipped and scanning still finds the FASTA entries.
+        File gff3 = TestResources.file("fasta", "gff3_with_embedded_fasta.txt");
+        byte[] bytes = Files.readAllBytes(gff3.toPath());
+        long directiveOffset = indexOf(bytes, "##FASTA".getBytes(StandardCharsets.UTF_8));
+        assertTrue(directiveOffset > 0, "##FASTA directive must exist past byte 0");
+
+        try (FastaReader service = new FastaReader(gff3, SequenceAlphabet.defaultNucleotideAlphabet(), directiveOffset)) {
+            assertEquals(List.of(0L, 1L), service.getOrderedIds());
+            assertEquals(
+                    "NNACACGTTTNN",
+                    service.getSequenceSlice(
+                            0L, 1, service.getStats(0L).totalBases(), SequenceRangeOption.WHOLE_SEQUENCE));
+        }
+    }
+
+    @Test
+    void rejectsOffsetBeyondFileSize() throws IOException {
+        File gff3 = TestResources.file("fasta", "gff3_with_embedded_fasta.txt");
+        long tooBig = gff3.length() + 1;
+        assertThrows(
+                FastaFileException.class,
+                () -> new FastaReader(gff3, SequenceAlphabet.defaultNucleotideAlphabet(), tooBig));
+    }
+
+    private static long indexOf(byte[] haystack, byte[] needle) {
+        outer:
+        for (int i = 0; i <= haystack.length - needle.length; i++) {
+            for (int j = 0; j < needle.length; j++) {
+                if (haystack[i + j] != needle[j]) continue outer;
+            }
+            return i;
+        }
+        return -1;
     }
 
     @Test

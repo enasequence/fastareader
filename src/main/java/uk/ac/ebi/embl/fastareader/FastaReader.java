@@ -54,6 +54,13 @@ public final class FastaReader implements AutoCloseable, SequenceFormatReader {
     private InternalReader reader;
     private SequenceAlphabet alphabet;
 
+    /**
+     * Absolute byte offset at which FASTA scanning begins. 0 means the whole file is scanned. A positive
+     * value lets the reader ignore a leading non-FASTA prefix — e.g. the annotation section of a GFF3 file
+     * that ends with an embedded FASTA block.
+     */
+    private long startByteOffset = 0L;
+
     /** FASTA entries, each one with a unique fastaReaderId, header line string and basic sequence information */
     @Getter
     private List<Long> orderedIds = new ArrayList<>();
@@ -72,11 +79,29 @@ public final class FastaReader implements AutoCloseable, SequenceFormatReader {
      * Adds the option to define your own desired SequenceAlphabet and a list of tolerable characters in the sequence (usually eg. \n, \r)
      * */
     public FastaReader(File fastaFile, SequenceAlphabet alphabet) throws FastaFileException, IOException {
+        this(fastaFile, alphabet, 0L);
+    }
+
+    /**
+     * Initializes FASTA reader on a partial file, skimming from {@code startByteOffset} onwards right away.
+     *
+     * <p>Use this when the FASTA content does not begin at the start of the file, for example a GFF3 file
+     * whose leading annotation lines are followed by an embedded FASTA section. Bytes before
+     * {@code startByteOffset} are ignored during scanning; header detection still requires a {@code '>'} at
+     * the start of a line, so it is safe to point the offset at (or slightly before) the FASTA block.
+     *
+     * @param fastaFile FASTA-bearing file to open (must not be {@code null})
+     * @param alphabet the {@link SequenceAlphabet} used to interpret the sequence bytes
+     * @param startByteOffset absolute byte offset to begin scanning from; must be within {@code [0, fileSize]}
+     */
+    public FastaReader(File fastaFile, SequenceAlphabet alphabet, long startByteOffset)
+            throws FastaFileException, IOException {
         this.file = Objects.requireNonNull(fastaFile, "sequenceFile");
         checkIfUtf8(file);
 
         resetData();
         this.alphabet = alphabet;
+        this.startByteOffset = startByteOffset;
         this.reader = new InternalReader(fastaFile, this.alphabet, FILE_FORMAT);
 
         loadEntries();
@@ -229,8 +254,19 @@ public final class FastaReader implements AutoCloseable, SequenceFormatReader {
     // ---------------------------- interactions with the reader ----------------------------
 
     public void openNewFile(File fastaFile) throws FastaFileException, IOException {
+        openNewFile(fastaFile, 0L);
+    }
+
+    /**
+     * Closes the current file (if any) and opens a new one, scanning from {@code startByteOffset} onwards.
+     *
+     * @param fastaFile FASTA-bearing file to open (must not be {@code null})
+     * @param startByteOffset absolute byte offset to begin scanning from; must be within {@code [0, fileSize]}
+     */
+    public void openNewFile(File fastaFile, long startByteOffset) throws FastaFileException, IOException {
         close(); // if already open, close first
         this.file = Objects.requireNonNull(fastaFile, "file");
+        this.startByteOffset = startByteOffset;
         reader = new InternalReader(fastaFile, this.alphabet, SequenceFileFormat.FASTA);
         checkIfUtf8(fastaFile);
         loadEntries();
@@ -284,7 +320,7 @@ public final class FastaReader implements AutoCloseable, SequenceFormatReader {
     private void loadEntries() throws IOException, FastaFileException {
         List<SequenceEntryMetadata> readEntries;
         try {
-            readEntries = reader.readFile();
+            readEntries = reader.readFile(startByteOffset);
         } catch (SequenceReadingException e) {
             throw new FastaFileException(e);
         }
