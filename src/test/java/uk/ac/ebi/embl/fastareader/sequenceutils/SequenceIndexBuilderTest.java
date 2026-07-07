@@ -314,6 +314,27 @@ public class SequenceIndexBuilderTest {
     }
 
     @Test
+    void proteinAlphabetTreatsXAsGapAndNAsResidue() throws Exception {
+        // X X M N N K Y | X X   (bases 1..9)
+        // Leading gap = XX (1-2), trailing gap = XX (8-9). The internal NN are Asparagine residues,
+        // NOT gaps, so they must not appear as a gap region.
+        String sequence = "XXMNNKY\nXX";
+        Path p = writeAscii(tempDir, "idx_protein_gap.txt", sequence);
+
+        try (SeekableByteReader ch = openRead(p)) {
+            SequenceIndexBuilder sib =
+                    new SequenceIndexBuilder(ch, SequenceAlphabet.defaultProteinAlphabet(), Optional.empty());
+
+            SequenceIndex idx = sib.buildFrom(0);
+
+            assertEquals(List.of(new GapRegion(1, 2), new GapRegion(8, 9)), idx.gapRegionsView());
+            assertEquals(2, idx.startNBasesCount, "leading X gap bases");
+            assertEquals(2, idx.endNBasesCount, "trailing X gap bases");
+            assertEquals(9, idx.totalBases());
+        }
+    }
+
+    @Test
     void recordsGapRegionsAcrossLineBreaksAndTabsWithoutOffByOneErrors() throws Exception {
         String sequence = "ACGTNN\t\n" + "NNNCGTN\n" + "NNACTGNN";
         Path p = writeAscii(tempDir, "idx_gap_off_by_one.txt", sequence);

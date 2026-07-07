@@ -15,13 +15,25 @@ import java.util.Collections;
 import java.util.List;
 
 public final class SequenceAlphabet {
-    private static final byte N_UPPER = (byte) 'N'; // IUPAC defined any character
     private final boolean[] allowed = new boolean[128];
     private final boolean[] specialChars = new boolean[128];
+    private final boolean[] gapChars = new boolean[128];
     private final SequenceAlphabetSettings settings;
 
+    /** Gap characters default to N/n (nucleotide behaviour) when not otherwise specified. */
     public SequenceAlphabet(String nucleotideString, String specialCharsString) {
         this.settings = new SequenceAlphabetSettings(nucleotideString, specialCharsString);
+        setupAsciiArrays();
+    }
+
+    /**
+     * @param baseString the allowed sequence characters (bases / residues)
+     * @param specialCharsString characters tolerated but ignored within a sequence (e.g. {@code "\n\r"})
+     * @param gapCharsString characters treated as gap / unknown for gap-region detection and edge trimming
+     *     (e.g. {@code "N"} for nucleotides, {@code "X"} for protein); may be empty to disable gap tracking
+     */
+    public SequenceAlphabet(String baseString, String specialCharsString, String gapCharsString) {
+        this.settings = new SequenceAlphabetSettings(baseString, specialCharsString, gapCharsString);
         setupAsciiArrays();
     }
 
@@ -41,18 +53,38 @@ public final class SequenceAlphabet {
         return i < 128 && specialChars[i];
     }
 
-    /** Fast ASCII check for 'N' or 'n' without decoding. */
-    public boolean isNBase(byte b) {
-        return (byte) (b & ~0x20) == N_UPPER;
+    /**
+     * Fast ASCII check for whether {@code b} is a gap / unknown character for this alphabet (e.g. {@code 'N'}
+     * for nucleotides, {@code 'X'} for protein). Drives gap-region detection and edge trimming.
+     */
+    public boolean isGapBase(byte b) {
+        int i = b & 0xFF;
+        return i < 128 && gapChars[i];
     }
 
-    /** The canonical N base character (uppercase). */
-    public char nBase() {
-        return (char) N_UPPER; // returns 'N'
+    /**
+     * @deprecated superseded by {@link #isGapBase(byte)}, which reflects the alphabet's configured gap
+     *     characters rather than a hardcoded {@code 'N'}. Retained for source compatibility; for the
+     *     default nucleotide alphabet it is behaviourally identical.
+     */
+    @Deprecated
+    public boolean isNBase(byte b) {
+        return isGapBase(b);
     }
 
     public static SequenceAlphabet defaultNucleotideAlphabet() {
-        return new SequenceAlphabet(new SequenceAlphabetSettings("ACGTRYSWKMBDHVNacgtryswkmbdhvn", "\n\r"));
+        return new SequenceAlphabet(new SequenceAlphabetSettings("ACGTRYSWKMBDHVNacgtryswkmbdhvn", "\n\r", "Nn"));
+    }
+
+    /**
+     * Amino-acid alphabet for protein / translated sequences: the 20 standard residues plus ambiguity codes
+     * {@code X B Z}, non-standard residues {@code U O}, and the stop character {@code *} (upper and lower
+     * case). The gap / unknown character is {@code X} — note {@code N} is a valid residue (Asparagine) here,
+     * not a gap.
+     */
+    public static SequenceAlphabet defaultProteinAlphabet() {
+        return new SequenceAlphabet(
+                new SequenceAlphabetSettings("ACDEFGHIKLMNPQRSTVWYXBZUO*acdefghiklmnpqrstvwyxbzuo", "\n\r", "Xx"));
     }
 
     /** Returns allowed bases as uppercase, de-duplicated (e.g., 'A' not both 'A' and 'a'). */
@@ -89,7 +121,7 @@ public final class SequenceAlphabet {
     }
 
     public SequenceAlphabetSettings exportAlphabetSettings() {
-        return new SequenceAlphabetSettings(settings.chars(), settings.specialChars());
+        return new SequenceAlphabetSettings(settings.chars(), settings.specialChars(), settings.gapChars());
     }
 
     private void setupAsciiArrays() {
@@ -97,5 +129,8 @@ public final class SequenceAlphabet {
         allowed['>'] = false;
 
         for (char c : this.settings.specialChars().toCharArray()) if (c < 128) this.specialChars[c] = true;
+
+        String gaps = this.settings.gapChars();
+        if (gaps != null) for (char c : gaps.toCharArray()) if (c < 128) this.gapChars[c] = true;
     }
 }
