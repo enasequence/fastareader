@@ -181,7 +181,8 @@ class FastaReaderIntegrationTest {
         long directiveOffset = indexOf(bytes, "##FASTA".getBytes(StandardCharsets.UTF_8));
         assertTrue(directiveOffset > 0, "##FASTA directive must exist past byte 0");
 
-        try (FastaReader service = new FastaReader(gff3, SequenceAlphabet.defaultNucleotideAlphabet(), directiveOffset)) {
+        try (FastaReader service =
+                new FastaReader(gff3, SequenceAlphabet.defaultNucleotideAlphabet(), directiveOffset)) {
             assertEquals(List.of(0L, 1L), service.getOrderedIds());
             assertEquals(
                     "NNACACGTTTNN",
