@@ -10,6 +10,7 @@
  */
 package uk.ac.ebi.embl.fastareader;
 
+import java.io.ByteArrayInputStream;
 import java.io.File;
 import java.io.IOException;
 import java.io.Reader;
@@ -18,6 +19,10 @@ import lombok.Getter;
 import uk.ac.ebi.embl.fastareader.encoding.Utf8Detector;
 import uk.ac.ebi.embl.fastareader.exception.SequenceFileException;
 import uk.ac.ebi.embl.fastareader.exception.SequenceReadingException;
+import uk.ac.ebi.embl.fastareader.io.BgzfByteReader;
+import uk.ac.ebi.embl.fastareader.io.BgzfDetector;
+import uk.ac.ebi.embl.fastareader.io.FileChannelByteReader;
+import uk.ac.ebi.embl.fastareader.io.SeekableByteReader;
 import uk.ac.ebi.embl.fastareader.sequenceutils.ByteSpan;
 import uk.ac.ebi.embl.fastareader.sequenceutils.GapRegion;
 import uk.ac.ebi.embl.fastareader.sequenceutils.SequenceAlphabet;
@@ -57,7 +62,10 @@ public class SequenceReader implements AutoCloseable {
 
     /** Initializes Sequence reader, skimming through the whole file right away. */
     public SequenceReader(File sequenceFile) throws SequenceFileException, IOException {
-        this(sequenceFile, SequenceAlphabet.defaultNucleotideAlphabet());
+        this.file = Objects.requireNonNull(sequenceFile, "sequenceFile");
+        resetData();
+        this.sequenceAlphabet = SequenceAlphabet.defaultNucleotideAlphabet();
+        initAndLoad(sequenceFile);
     }
 
     /**
@@ -67,13 +75,27 @@ public class SequenceReader implements AutoCloseable {
     public SequenceReader(File sequenceFile, SequenceAlphabet sequenceAlphabet)
             throws SequenceFileException, IOException {
         this.file = Objects.requireNonNull(sequenceFile, "sequenceFile");
-        checkIfUtf8(file);
-
         resetData();
         this.sequenceAlphabet = sequenceAlphabet;
-        this.reader = new InternalReader(sequenceFile, this.sequenceAlphabet, FILE_FORMAT);
+        initAndLoad(sequenceFile);
+    }
 
-        loadSequence();
+    private void initAndLoad(File file) throws SequenceFileException, IOException {
+        SeekableByteReader byteReader = openAndValidateUtf8(file);
+        boolean success = false;
+        try {
+            this.reader = new InternalReader(file, this.sequenceAlphabet, FILE_FORMAT, byteReader);
+            loadSequence();
+            success = true;
+        } finally {
+            if (!success) {
+                try {
+                    byteReader.close();
+                } catch (IOException ignored) {
+                }
+                reader = null;
+            }
+        }
     }
 
     /**
@@ -81,16 +103,25 @@ public class SequenceReader implements AutoCloseable {
      * */
     public SequenceReader(File file, SequenceAlphabet sequenceAlphabet, SequenceIndex sequenceIndex)
             throws SequenceFileException, IOException {
-
         this.file = Objects.requireNonNull(file, "sequenceFile");
-        checkIfUtf8(file);
-
         resetData();
         this.sequenceAlphabet = sequenceAlphabet;
-        this.reader = new InternalReader(file, this.sequenceAlphabet, FILE_FORMAT);
-
-        this.sequenceIndex = sequenceIndex;
-        setUpSequenceStatsFromIndex();
+        SeekableByteReader byteReader = openAndValidateUtf8(file);
+        boolean success = false;
+        try {
+            this.reader = new InternalReader(file, this.sequenceAlphabet, FILE_FORMAT, byteReader);
+            this.sequenceIndex = sequenceIndex;
+            setUpSequenceStatsFromIndex();
+            success = true;
+        } finally {
+            if (!success) {
+                try {
+                    byteReader.close();
+                } catch (IOException ignored) {
+                }
+                reader = null;
+            }
+        }
     }
 
     // ---------------------------- queries ----------------------------
@@ -163,11 +194,10 @@ public class SequenceReader implements AutoCloseable {
     }
 
     public void openNewFile(File sequenceFile) throws SequenceFileException, IOException {
-        close(); // if already open, close first
+        close();
         this.file = Objects.requireNonNull(sequenceFile, "file");
-        reader = new InternalReader(sequenceFile, this.sequenceAlphabet, FILE_FORMAT);
-        checkIfUtf8(sequenceFile);
-        loadSequence();
+        resetData();
+        initAndLoad(sequenceFile);
     }
 
     /** Close the reader. Safe to call multiple times. */
@@ -182,10 +212,39 @@ public class SequenceReader implements AutoCloseable {
 
     // ----------------------------- helper methods for actually loading the plain sequence ------------------
 
-    private void checkIfUtf8(File file) throws IOException, SequenceFileException {
-        if (!Utf8Detector.isProbablyUtf8(file.toPath(), UTF_8_CHECK_MAXIMUM_BYTES)) {
+    /**
+     * Detects compression, rejects plain gzip, validates UTF-8, and returns an open
+     * {@link SeekableByteReader} over the logical byte stream. For BGZF files this reuses the
+     * same reader instance for validation and parsing, avoiding a second block-directory walk.
+     */
+    private static SeekableByteReader openAndValidateUtf8(File file) throws IOException, SequenceFileException {
+        BgzfDetector.Compression comp = BgzfDetector.detect(file);
+        if (comp == BgzfDetector.Compression.PLAIN_GZIP) {
+            throw new SequenceFileException(
+                    "Plain gzip is not supported; recompress with bgzip: " + file.getAbsolutePath());
+        }
+        if (comp == BgzfDetector.Compression.BGZF) {
+            BgzfByteReader reader = new BgzfByteReader(file);
+            boolean ok;
+            try {
+                ok = Utf8Detector.isProbablyUtf8(
+                        new ByteArrayInputStream(BgzfReaderUtils.decompressedPrefix(reader, UTF_8_CHECK_MAXIMUM_BYTES)),
+                        UTF_8_CHECK_MAXIMUM_BYTES);
+            } catch (IOException e) {
+                reader.close();
+                throw e;
+            }
+            if (!ok) {
+                reader.close();
+                throw new SequenceFileException("File is not a UTF-8 compliant file, and as such cannot be processed");
+            }
+            return reader;
+        }
+        boolean ok = Utf8Detector.isProbablyUtf8(file.toPath(), UTF_8_CHECK_MAXIMUM_BYTES);
+        if (!ok) {
             throw new SequenceFileException("File is not a UTF-8 compliant file, and as such cannot be processed");
         }
+        return new FileChannelByteReader(file);
     }
 
     /**

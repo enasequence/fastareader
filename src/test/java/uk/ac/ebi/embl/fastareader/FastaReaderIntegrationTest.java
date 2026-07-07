@@ -407,4 +407,23 @@ class FastaReaderIntegrationTest {
             assertEquals(sequenceEnd, "GAATTCTGATGGCTGT");
         }
     }
+
+    @Test
+    void parsesMultiEntryFastaWithCrOnlyLineEndings() throws Exception {
+        File fasta = TestResources.file("fasta", "two_entries_cr_only.txt");
+        try (FastaReader service = new FastaReader(fasta)) {
+            List<Long> ids = service.getOrderedIds();
+            assertEquals(2, ids.size(), "CR-only FASTA must yield 2 entries");
+            assertTrue(ids.contains(0L));
+            assertTrue(ids.contains(1L));
+
+            assertTrue(service.getHeaderline(0L).isPresent());
+            assertTrue(service.getHeaderline(1L).isPresent());
+
+            String seq1 = service.getSequenceSlice(0L, 1, 4, SequenceRangeOption.WHOLE_SEQUENCE);
+            String seq2 = service.getSequenceSlice(1L, 1, 4, SequenceRangeOption.WHOLE_SEQUENCE);
+            assertEquals("ACGT", seq1);
+            assertEquals("GGGG", seq2);
+        }
+    }
 }

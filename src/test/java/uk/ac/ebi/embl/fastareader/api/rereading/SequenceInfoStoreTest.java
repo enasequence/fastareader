@@ -15,6 +15,7 @@ import static org.junit.jupiter.api.Assertions.*;
 import java.io.File;
 import java.nio.file.Files;
 import java.nio.file.Path;
+import java.nio.file.Paths;
 import java.util.ArrayList;
 import java.util.List;
 import org.junit.jupiter.api.BeforeEach;
@@ -135,5 +136,18 @@ public class SequenceInfoStoreTest {
         store.write(infos, nestedPath);
 
         assertTrue(Files.exists(nestedPath));
+    }
+
+    @Test
+    void writeToPathWithNullParentDoesNotNpe() throws Exception {
+        // Paths.get("bare.json").getParent() == null; previously caused NullPointerException
+        Path bare = Paths.get("seq_info_test_bare.json");
+        assertNull(bare.getParent());
+        try {
+            SequenceInfoStore.write(List.of(), bare);
+            assertTrue(Files.exists(bare));
+        } finally {
+            Files.deleteIfExists(bare);
+        }
     }
 }

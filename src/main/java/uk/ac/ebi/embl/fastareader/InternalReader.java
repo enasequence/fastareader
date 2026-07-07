@@ -12,11 +12,11 @@ package uk.ac.ebi.embl.fastareader;
 
 import java.io.*;
 import java.nio.ByteBuffer;
-import java.nio.channels.FileChannel;
 import java.nio.charset.StandardCharsets;
 import java.util.*;
 import uk.ac.ebi.embl.fastareader.exception.SequenceReadingException;
 import uk.ac.ebi.embl.fastareader.headerutils.HeaderLineDecoder;
+import uk.ac.ebi.embl.fastareader.io.SeekableByteReader;
 import uk.ac.ebi.embl.fastareader.sequenceutils.*;
 
 class InternalReader implements AutoCloseable {
@@ -27,36 +27,33 @@ class InternalReader implements AutoCloseable {
     private static final byte LF = (byte) '\n';
     private static final byte CR = (byte) '\r';
 
-    private final FileChannel channel;
+    private final SeekableByteReader reader;
     private final long fileSize;
     private final SequenceAlphabet alphabet;
     private final SequenceFileFormat fileFormat;
     HeaderLineDecoder headerLineDecoder;
 
-    InternalReader(File file, SequenceFileFormat fileFormat) throws IOException {
-        this(file, SequenceAlphabet.defaultNucleotideAlphabet(), fileFormat);
-    }
-
-    InternalReader(File file, SequenceAlphabet alphabet, SequenceFileFormat fileFormat) throws IOException {
-        Objects.requireNonNull(file, "Input FASTA file is null");
+    InternalReader(File file, SequenceAlphabet alphabet, SequenceFileFormat fileFormat, SeekableByteReader reader)
+            throws IOException {
+        Objects.requireNonNull(file, "Input file is null");
         if (!file.exists()) throw new FileNotFoundException(file.getAbsolutePath());
         if (file.isDirectory()) throw new FileNotFoundException("Directory: " + file.getAbsolutePath());
         if (!file.canRead()) throw new IllegalArgumentException("No read permission: " + file.getAbsolutePath());
         this.alphabet = Objects.requireNonNull(alphabet, "alphabet");
         this.fileFormat = Objects.requireNonNull(fileFormat, "fileFormat");
-        this.channel = new FileInputStream(file).getChannel();
-        this.fileSize = channel.size();
+        this.reader = Objects.requireNonNull(reader, "reader");
+        this.fileSize = reader.size();
         this.headerLineDecoder =
                 new HeaderLineDecoder(StandardCharsets.UTF_8, new HashSet<>(Arrays.asList(LF, CR)), BUFFER_SIZE);
     }
 
     @Override
     public void close() throws IOException {
-        channel.close();
+        reader.close();
     }
 
     boolean readingFile() {
-        return channel.isOpen();
+        return reader.isOpen();
     }
 
     String getSequenceSliceString(ByteSpan span) throws IOException {
@@ -78,7 +75,7 @@ class InternalReader implements AutoCloseable {
             buf.clear();
             int want = (int) Math.min(buf.capacity(), remain);
             buf.limit(want);
-            int n = channel.read(buf, off);
+            int n = reader.read(buf, off);
             if (n <= 0) break;
             buf.flip();
             while (buf.hasRemaining()) {
@@ -93,7 +90,7 @@ class InternalReader implements AutoCloseable {
     }
 
     /** Char-stream view over [span.start, span.endEx): ASCII decode, skip LF/CR.
-     *  Uses absolute reads; does NOT change channel.position(). */
+     *  Uses absolute reads; does NOT change reader.position(). */
     java.io.Reader getSequenceSliceReader(ByteSpan span) {
         final long start = span.start;
         final long endEx = span.endEx;
@@ -104,7 +101,7 @@ class InternalReader implements AutoCloseable {
             private final java.nio.ByteBuffer buf = java.nio.ByteBuffer.allocateDirect(CHAR_BUF_SIZE);
 
             {
-                // allocate buffer and mark it EMPTY so the very first read() refills it from the channel.
+                // allocate buffer and mark it EMPTY so the very first read() refills it from the reader.
                 // Without this, hasRemaining() is true and we'll read uninitialized bytes (→ '\0').
                 buf.limit(0);
             }
@@ -113,7 +110,7 @@ class InternalReader implements AutoCloseable {
             public int read(
                     char[] characterBuffer, int startingWriteIndexInCharacterBuffer, int maximumNumberOfCharsToRead)
                     throws java.io.IOException {
-                // --- Validate caller’s target window [off .. off + len) ---
+                // --- Validate caller's target window [off .. off + len) ---
                 validateTargetWindow(characterBuffer, startingWriteIndexInCharacterBuffer, maximumNumberOfCharsToRead);
                 if (maximumNumberOfCharsToRead == 0) return 0;
 
@@ -127,12 +124,12 @@ class InternalReader implements AutoCloseable {
                         int toRead = (int) Math.min(buf.capacity(), endEx - pos);
                         buf.limit(toRead);
 
-                        int n = channel.read(buf, pos);
+                        int n = reader.read(buf, pos);
                         if (n <= 0) break; // if no bytes were read, break
                         pos += n;
                         buf.flip();
                     }
-                    // Drain bytes + ASCII decode -> writees chars into caller’s window [off .. off+len)
+                    // Drain bytes + ASCII decode -> writees chars into caller's window [off .. off+len)
                     while (buf.hasRemaining() && out < maximumNumberOfCharsToRead) {
                         byte b = buf.get();
                         if (alphabet.isNonSequenceAllowedChar(b)) continue; // skip irrelevant bytes
@@ -142,7 +139,7 @@ class InternalReader implements AutoCloseable {
                         out++;
                     }
                 }
-                // If we produced nothing AND we’re at EOF, signal -1
+                // If we produced nothing AND we're at EOF, signal -1
                 return (out == 0) ? -1 : out;
             }
 
@@ -177,7 +174,7 @@ class InternalReader implements AutoCloseable {
 
             @Override
             public void close() {
-                /* no-op, channel is kept alive */
+                /* no-op, reader is kept alive */
             }
         };
     }
@@ -236,16 +233,16 @@ class InternalReader implements AutoCloseable {
             if (headerPosOpt.isEmpty()) return Optional.empty();
 
             long headerPos = headerPosOpt.getAsLong();
-            String headerLine = headerLineDecoder.readHeaderLine(channel, headerPos); // readHeaderLine(headerPos);
+            String headerLine = headerLineDecoder.readHeaderLine(reader, headerPos);
             if (headerLine == null)
                 throw new SequenceReadingException("FASTA header is malformed at byte " + headerPos);
 
-            long sequenceStartPos = channel.position(); // first byte after header line is the sequence position
-            SequenceIndexBuilder sib = new SequenceIndexBuilder(channel, alphabet, Optional.of(GT));
+            long sequenceStartPos = reader.position(); // first byte after header line is the sequence position
+            SequenceIndexBuilder sib = new SequenceIndexBuilder(reader, alphabet, Optional.of(GT));
             SequenceIndex index = sib.buildFrom(sequenceStartPos);
 
             // Move reader cursor to the sequence start position
-            channel.position(sequenceStartPos);
+            reader.position(sequenceStartPos);
 
             return Optional.of(new SequenceEntryMetadata(headerLine, headerPos, index));
         } catch (IOException io) {
@@ -257,12 +254,12 @@ class InternalReader implements AutoCloseable {
     /** Reads the single sequence from start to end */
     private Optional<SequenceEntryMetadata> readFileAsSequence() throws SequenceReadingException {
         try {
-            long sequenceStartPos = channel.position(); // first byte should be sequence start
-            SequenceIndexBuilder sib = new SequenceIndexBuilder(channel, alphabet, Optional.empty());
+            long sequenceStartPos = reader.position(); // first byte should be sequence start
+            SequenceIndexBuilder sib = new SequenceIndexBuilder(reader, alphabet, Optional.empty());
             SequenceIndex index = sib.buildFrom(sequenceStartPos);
 
             // Move reader cursor to the sequence start position
-            channel.position(sequenceStartPos);
+            reader.position(sequenceStartPos);
 
             SequenceEntryMetadata e = new SequenceEntryMetadata(index);
 
@@ -285,7 +282,7 @@ class InternalReader implements AutoCloseable {
             buf.clear();
             int want = (int) Math.min(buf.capacity(), fileSize - from);
             buf.limit(want);
-            int n = channel.read(buf, from);
+            int n = reader.read(buf, from);
             if (n <= 0) break;
             buf.flip();
             while (buf.hasRemaining()) {
@@ -302,19 +299,20 @@ class InternalReader implements AutoCloseable {
     private boolean isLineStart(long abs) throws IOException {
         if (abs == 0) return true;
         if (abs > fileSize) return false;
-        return peek(abs - 1) == LF;
+        byte prev = peek(abs - 1);
+        return prev == LF || prev == CR;
     }
 
     private byte peek(long abs) throws IOException {
         if (abs < 0 || abs >= fileSize) return 0;
         ByteBuffer one = ByteBuffer.allocate(1);
-        int n = channel.read(one, abs);
+        int n = reader.read(one, abs);
         return (n == 1) ? one.get(0) : 0;
     }
 
     private long safePos() {
         try {
-            return channel.position();
+            return reader.position();
         } catch (IOException e) {
             return -1;
         }

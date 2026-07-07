@@ -12,12 +12,11 @@ package uk.ac.ebi.embl.fastareader.sequenceutils;
 
 import java.io.IOException;
 import java.nio.ByteBuffer;
-import java.nio.channels.FileChannel;
-import java.nio.charset.StandardCharsets;
 import java.util.ArrayList;
 import java.util.List;
 import java.util.Optional;
 import uk.ac.ebi.embl.fastareader.exception.SequenceReadingException;
+import uk.ac.ebi.embl.fastareader.io.SeekableByteReader;
 
 public final class SequenceIndexBuilder {
     private static final int SCAN_BUF_SIZE = 4 * 1024 * 1024; // 4 MB
@@ -26,13 +25,13 @@ public final class SequenceIndexBuilder {
     private static final byte LF = (byte) '\n';
     private static final byte CR = (byte) '\r';
 
-    private final FileChannel ch;
+    private final SeekableByteReader ch;
     private final long fileSize;
     private final SequenceAlphabet alphabet;
     private final Optional<Byte>
             sequenceEndByte; // byte marking start of next entry (e.g. '>' for FASTA); empty means read to EOF
 
-    public SequenceIndexBuilder(FileChannel ch, SequenceAlphabet alphabet, Optional<Byte> sequenceEndByte)
+    public SequenceIndexBuilder(SeekableByteReader ch, SequenceAlphabet alphabet, Optional<Byte> sequenceEndByte)
             throws IOException {
         this.ch = ch;
         this.fileSize = ch.size();
@@ -254,7 +253,6 @@ public final class SequenceIndexBuilder {
 
             if (n <= 0) break;
             buf.flip();
-            String s = StandardCharsets.US_ASCII.decode(buf).toString();
             for (int i = n - 1; i > -1; i--) { // read from the back
                 byte b = buf.get(i);
                 if (alphabet.isNBase(b)) trailing++;
