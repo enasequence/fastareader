@@ -13,9 +13,9 @@ package uk.ac.ebi.embl.fastareader.headerutils;
 import java.io.IOException;
 import java.nio.ByteBuffer;
 import java.nio.CharBuffer;
-import java.nio.channels.FileChannel;
 import java.nio.charset.*;
 import java.util.Set;
+import uk.ac.ebi.embl.fastareader.io.SeekableByteReader;
 
 public class HeaderLineDecoder {
     private Set<Byte> endChars;
@@ -31,12 +31,12 @@ public class HeaderLineDecoder {
     }
 
     /** Reads one Unicode line from input position, assuming the position handed to it contains '>', advances past LF/CR or to EOF. */
-    public String readHeaderLine(FileChannel channel, long from) throws IOException {
-        long fileSize = channel.size();
+    public String readHeaderLine(SeekableByteReader reader, long from) throws IOException {
+        long fileSize = reader.size();
         if (from >= fileSize) return null;
 
-        channel.position(from);
-        long scanPos = channel.position();
+        reader.position(from);
+        long scanPos = reader.position();
 
         decoder.reset();
         StringBuilder sb = new StringBuilder(512);
@@ -48,17 +48,17 @@ public class HeaderLineDecoder {
             int want = (int) Math.min(buffer.capacity(), fileSize - scanPos);
             buffer.limit(want);
 
-            int n = channel.read(buffer, scanPos);
+            int n = reader.read(buffer, scanPos);
             if (n <= 0) break; // no characters to read, eg. hit end of file
 
             buffer.flip();
 
             int lineEndIndex = indexOfHeaderLineEnd(buffer);
             if (lineEndIndex >= 0) {
-                // found headerLine end, decode remaining bytes up to (but not including) LF/CR. & reposition channel
+                // found headerLine end, decode remaining bytes up to (but not including) LF/CR. & reposition reader
                 decodeBytes(sb, charBuf, buffer, lineEndIndex, true);
                 long nextLineStart = scanPos + lineEndIndex + 1;
-                channel.position(nextLineStart);
+                reader.position(nextLineStart);
                 return sb.toString();
 
             } else {
@@ -71,7 +71,7 @@ public class HeaderLineDecoder {
         // reached EOF: finalize decoder to flush any buffered bytes -> chars.
         finishDecoding(sb, charBuf);
 
-        channel.position(fileSize);
+        reader.position(fileSize);
         return sb.toString();
     }
 

@@ -21,7 +21,8 @@ public class SequenceInfoStore {
     private static final ObjectMapper MAPPER = new ObjectMapper();
 
     public static void write(List<SequenceInfoDTO> infos, Path outputPath) throws IOException {
-        Files.createDirectories(outputPath.getParent());
+        Path parent = outputPath.getParent();
+        if (parent != null) Files.createDirectories(parent);
         MAPPER.writerWithDefaultPrettyPrinter().writeValue(outputPath.toFile(), infos);
     }
 

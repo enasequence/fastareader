@@ -13,16 +13,16 @@ package uk.ac.ebi.embl.fastareader.sequenceutils;
 import static org.junit.jupiter.api.Assertions.*;
 
 import java.io.IOException;
-import java.nio.channels.FileChannel;
 import java.nio.charset.StandardCharsets;
 import java.nio.file.Files;
 import java.nio.file.Path;
-import java.nio.file.StandardOpenOption;
 import java.util.List;
 import java.util.Optional;
 import org.junit.jupiter.api.Test;
 import org.junit.jupiter.api.io.TempDir;
 import uk.ac.ebi.embl.fastareader.exception.SequenceReadingException;
+import uk.ac.ebi.embl.fastareader.io.FileChannelByteReader;
+import uk.ac.ebi.embl.fastareader.io.SeekableByteReader;
 
 public class SequenceIndexBuilderTest {
 
@@ -31,8 +31,8 @@ public class SequenceIndexBuilderTest {
     @TempDir
     Path tempDir;
 
-    private static FileChannel openRead(Path p) throws IOException {
-        return FileChannel.open(p, StandardOpenOption.READ);
+    private static SeekableByteReader openRead(Path p) throws IOException {
+        return new FileChannelByteReader(p.toFile());
     }
 
     private static Path writeAscii(Path dir, String filename, String content) throws IOException {
@@ -62,7 +62,7 @@ public class SequenceIndexBuilderTest {
         String fasta = header + l1 + l2 + l3 + empties + nextHead;
         Path p = writeAscii(tempDir, "idx1.fa", fasta);
 
-        try (FileChannel ch = openRead(p)) {
+        try (SeekableByteReader ch = openRead(p)) {
             long seqStartPos = header.getBytes(StandardCharsets.US_ASCII).length; // first byte after header line
 
             SequenceAlphabet alpha = SequenceAlphabet.defaultNucleotideAlphabet();
@@ -134,7 +134,7 @@ public class SequenceIndexBuilderTest {
         String fasta = header + l1 + l2 + next;
         Path p = writeAscii(tempDir, "idx2.fa", fasta);
 
-        try (FileChannel ch = openRead(p)) {
+        try (SeekableByteReader ch = openRead(p)) {
             long seqStart = header.getBytes(StandardCharsets.US_ASCII).length;
             SequenceIndexBuilder sib =
                     new SequenceIndexBuilder(ch, SequenceAlphabet.defaultNucleotideAlphabet(), Optional.of(GT));
@@ -169,7 +169,7 @@ public class SequenceIndexBuilderTest {
         String fasta = header + l1 + l2 + next;
         Path p = writeAscii(tempDir, "idx3.fa", fasta);
 
-        try (FileChannel ch = openRead(p)) {
+        try (SeekableByteReader ch = openRead(p)) {
             long seqStart = header.getBytes(StandardCharsets.US_ASCII).length;
             SequenceIndexBuilder sib =
                     new SequenceIndexBuilder(ch, SequenceAlphabet.defaultNucleotideAlphabet(), Optional.of(GT));
@@ -204,7 +204,7 @@ public class SequenceIndexBuilderTest {
         String fasta = header + l1 + l2 + blanks + l3 + next;
         Path p = writeAscii(tempDir, "idx4.fa", fasta);
 
-        try (FileChannel ch = openRead(p)) {
+        try (SeekableByteReader ch = openRead(p)) {
             long seqStart = header.getBytes(StandardCharsets.US_ASCII).length;
             SequenceIndexBuilder sib =
                     new SequenceIndexBuilder(ch, SequenceAlphabet.defaultNucleotideAlphabet(), Optional.of(GT));
@@ -244,7 +244,7 @@ public class SequenceIndexBuilderTest {
         String sequence = l1 + l2 + blanks + l3;
         Path p = writeAscii(tempDir, "idx5.fa", sequence);
 
-        try (FileChannel ch = openRead(p)) {
+        try (SeekableByteReader ch = openRead(p)) {
             SequenceIndexBuilder sib =
                     new SequenceIndexBuilder(ch, SequenceAlphabet.defaultNucleotideAlphabet(), Optional.empty());
 
@@ -285,7 +285,7 @@ public class SequenceIndexBuilderTest {
         String fasta = header + l1 + blanks + l2 + l3 + next;
         Path p = writeAscii(tempDir, "idx_gap.fa", fasta);
 
-        try (FileChannel ch = openRead(p)) {
+        try (SeekableByteReader ch = openRead(p)) {
             long seqStart = header.getBytes(StandardCharsets.US_ASCII).length;
             SequenceIndexBuilder sib =
                     new SequenceIndexBuilder(ch, SequenceAlphabet.defaultNucleotideAlphabet(), Optional.of(GT));
@@ -303,7 +303,7 @@ public class SequenceIndexBuilderTest {
         String sequence = "NNnn\nNN";
         Path p = writeAscii(tempDir, "idx_only_gap.txt", sequence);
 
-        try (FileChannel ch = openRead(p)) {
+        try (SeekableByteReader ch = openRead(p)) {
             SequenceIndexBuilder sib =
                     new SequenceIndexBuilder(ch, SequenceAlphabet.defaultNucleotideAlphabet(), Optional.empty());
 
@@ -318,7 +318,7 @@ public class SequenceIndexBuilderTest {
         String sequence = "ACGTNN\t\n" + "NNNCGTN\n" + "NNACTGNN";
         Path p = writeAscii(tempDir, "idx_gap_off_by_one.txt", sequence);
 
-        try (FileChannel ch = openRead(p)) {
+        try (SeekableByteReader ch = openRead(p)) {
             SequenceAlphabet alphabet = new SequenceAlphabet("ACGTNacgtn", "\n\r\t");
             SequenceIndexBuilder sib = new SequenceIndexBuilder(ch, alphabet, Optional.empty());
 
@@ -339,7 +339,7 @@ public class SequenceIndexBuilderTest {
         String sequence = l1 + l2 + blanks + l3;
         Path p = writeAscii(tempDir, "idx6.fa", sequence);
 
-        try (FileChannel ch = openRead(p)) {
+        try (SeekableByteReader ch = openRead(p)) {
             SequenceIndexBuilder sib =
                     new SequenceIndexBuilder(ch, SequenceAlphabet.defaultNucleotideAlphabet(), Optional.empty());
 

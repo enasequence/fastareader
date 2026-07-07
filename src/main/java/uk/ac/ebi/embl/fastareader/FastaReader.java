@@ -10,6 +10,7 @@
  */
 package uk.ac.ebi.embl.fastareader;
 
+import java.io.ByteArrayInputStream;
 import java.io.File;
 import java.io.IOException;
 import java.io.Reader;
@@ -22,6 +23,10 @@ import uk.ac.ebi.embl.fastareader.api.rereading.SequenceInfoDTO;
 import uk.ac.ebi.embl.fastareader.encoding.Utf8Detector;
 import uk.ac.ebi.embl.fastareader.exception.FastaFileException;
 import uk.ac.ebi.embl.fastareader.exception.SequenceReadingException;
+import uk.ac.ebi.embl.fastareader.io.BgzfByteReader;
+import uk.ac.ebi.embl.fastareader.io.BgzfDetector;
+import uk.ac.ebi.embl.fastareader.io.FileChannelByteReader;
+import uk.ac.ebi.embl.fastareader.io.SeekableByteReader;
 import uk.ac.ebi.embl.fastareader.sequenceutils.ByteSpan;
 import uk.ac.ebi.embl.fastareader.sequenceutils.GapRegion;
 import uk.ac.ebi.embl.fastareader.sequenceutils.SequenceAlphabet;
@@ -64,7 +69,10 @@ public final class FastaReader implements AutoCloseable, SequenceFormatReader {
 
     /** Initializes FASTA reader, skimming through the whole file right away. */
     public FastaReader(File fastaFile) throws FastaFileException, IOException {
-        this(fastaFile, SequenceAlphabet.defaultNucleotideAlphabet());
+        this.file = Objects.requireNonNull(fastaFile, "sequenceFile");
+        resetData();
+        this.alphabet = SequenceAlphabet.defaultNucleotideAlphabet();
+        initAndLoad(fastaFile);
     }
 
     /**
@@ -73,13 +81,27 @@ public final class FastaReader implements AutoCloseable, SequenceFormatReader {
      * */
     public FastaReader(File fastaFile, SequenceAlphabet alphabet) throws FastaFileException, IOException {
         this.file = Objects.requireNonNull(fastaFile, "sequenceFile");
-        checkIfUtf8(file);
-
         resetData();
         this.alphabet = alphabet;
-        this.reader = new InternalReader(fastaFile, this.alphabet, FILE_FORMAT);
+        initAndLoad(fastaFile);
+    }
 
-        loadEntries();
+    private void initAndLoad(File fastaFile) throws FastaFileException, IOException {
+        SeekableByteReader byteReader = openAndValidateUtf8(fastaFile);
+        boolean success = false;
+        try {
+            this.reader = new InternalReader(fastaFile, this.alphabet, FILE_FORMAT, byteReader);
+            loadEntries();
+            success = true;
+        } finally {
+            if (!success) {
+                try {
+                    byteReader.close();
+                } catch (IOException ignored) {
+                }
+                reader = null;
+            }
+        }
     }
 
     /**
@@ -93,19 +115,27 @@ public final class FastaReader implements AutoCloseable, SequenceFormatReader {
             HashMap<Long, String> headerLines)
             throws FastaFileException, IOException {
         this.file = Objects.requireNonNull(fastaFile, "sequenceFile");
-        checkIfUtf8(file);
-
+        Objects.requireNonNull(indexes, "indexes");
         resetData();
         this.alphabet = alphabet;
-        this.reader = new InternalReader(fastaFile, this.alphabet, FILE_FORMAT);
-
-        this.orderedIds = indexes.keySet().stream()
-                .sorted() // sort by ascending
-                .collect(Collectors.toList());
-
-        this.sequenceIndexesMap = indexes;
-        setUpSequenceStatsFromIndexes();
-        this.headerLinesMap = headerLines == null ? new HashMap<>() : headerLines;
+        SeekableByteReader byteReader = openAndValidateUtf8(fastaFile);
+        boolean success = false;
+        try {
+            this.reader = new InternalReader(fastaFile, this.alphabet, FILE_FORMAT, byteReader);
+            this.orderedIds = indexes.keySet().stream().sorted().collect(Collectors.toList());
+            this.sequenceIndexesMap = indexes;
+            setUpSequenceStatsFromIndexes();
+            this.headerLinesMap = headerLines == null ? new HashMap<>() : headerLines;
+            success = true;
+        } finally {
+            if (!success) {
+                try {
+                    byteReader.close();
+                } catch (IOException ignored) {
+                }
+                reader = null;
+            }
+        }
     }
 
     @Override
@@ -229,11 +259,10 @@ public final class FastaReader implements AutoCloseable, SequenceFormatReader {
     // ---------------------------- interactions with the reader ----------------------------
 
     public void openNewFile(File fastaFile) throws FastaFileException, IOException {
-        close(); // if already open, close first
+        close();
         this.file = Objects.requireNonNull(fastaFile, "file");
-        reader = new InternalReader(fastaFile, this.alphabet, SequenceFileFormat.FASTA);
-        checkIfUtf8(fastaFile);
-        loadEntries();
+        resetData();
+        initAndLoad(fastaFile);
     }
 
     @Override
@@ -261,10 +290,39 @@ public final class FastaReader implements AutoCloseable, SequenceFormatReader {
 
     // ----------------------------- helper methods for actually loading the fastaEntries ------------------
 
-    private void checkIfUtf8(File file) throws IOException, FastaFileException {
-        if (!Utf8Detector.isProbablyUtf8(file.toPath(), UTF_8_CHECK_MAXIMUM_BYTES)) {
+    /**
+     * Detects compression, rejects plain gzip, validates UTF-8, and returns an open
+     * {@link SeekableByteReader} over the logical byte stream. For BGZF files this reuses the
+     * same reader instance for validation and parsing, avoiding a second block-directory walk.
+     */
+    private static SeekableByteReader openAndValidateUtf8(File file) throws IOException, FastaFileException {
+        BgzfDetector.Compression comp = BgzfDetector.detect(file);
+        if (comp == BgzfDetector.Compression.PLAIN_GZIP) {
+            throw new FastaFileException(
+                    "Plain gzip is not supported; recompress with bgzip: " + file.getAbsolutePath());
+        }
+        if (comp == BgzfDetector.Compression.BGZF) {
+            BgzfByteReader reader = new BgzfByteReader(file);
+            boolean ok;
+            try {
+                ok = Utf8Detector.isProbablyUtf8(
+                        new ByteArrayInputStream(BgzfReaderUtils.decompressedPrefix(reader, UTF_8_CHECK_MAXIMUM_BYTES)),
+                        UTF_8_CHECK_MAXIMUM_BYTES);
+            } catch (IOException e) {
+                reader.close();
+                throw e;
+            }
+            if (!ok) {
+                reader.close();
+                throw new FastaFileException("File is not a UTF-8 compliant file, and as such cannot be processed");
+            }
+            return reader;
+        }
+        boolean ok = Utf8Detector.isProbablyUtf8(file.toPath(), UTF_8_CHECK_MAXIMUM_BYTES);
+        if (!ok) {
             throw new FastaFileException("File is not a UTF-8 compliant file, and as such cannot be processed");
         }
+        return new FileChannelByteReader(file);
     }
 
     private void resetData() {
