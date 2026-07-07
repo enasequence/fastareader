@@ -192,8 +192,11 @@ class InternalReader implements AutoCloseable {
      * detection still requires a {@code '>'} at the start of a line, so an offset that lands on preceding
      * non-FASTA lines is tolerated (those lines are skipped).
      *
-     * @param startByteOffset absolute byte offset to begin scanning from (0 = whole file); must be within
-     *     {@code [0, fileSize]}
+     * <p>The offset is measured against the reader's decompressed byte stream ({@code reader.size()}); for a
+     * BGZF-backed reader it is therefore an uncompressed-content offset, not a compressed-file offset.
+     *
+     * @param startByteOffset absolute offset into the decompressed byte stream to begin scanning from
+     *     (0 = whole file); must be within {@code [0, size()]}
      */
     List<SequenceEntryMetadata> readFile(long startByteOffset) throws SequenceReadingException, IOException {
         if (startByteOffset < 0 || startByteOffset > fileSize) {

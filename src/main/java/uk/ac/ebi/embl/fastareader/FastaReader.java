@@ -16,6 +16,7 @@ import java.io.IOException;
 import java.io.Reader;
 import java.util.*;
 import java.util.stream.Collectors;
+import lombok.AccessLevel;
 import lombok.Getter;
 import lombok.Setter;
 import uk.ac.ebi.embl.fastareader.api.SequenceFormatReader;
@@ -63,7 +64,13 @@ public final class FastaReader implements AutoCloseable, SequenceFormatReader {
      * Absolute byte offset at which FASTA scanning begins. 0 means the whole file is scanned. A positive
      * value lets the reader ignore a leading non-FASTA prefix — e.g. the annotation section of a GFF3 file
      * that ends with an embedded FASTA block.
+     *
+     * <p>Internal-only state: it is consumed once during scanning ({@link #initAndLoad(File)}), so exposing a
+     * public getter/setter would be a footgun (a post-construction setter would silently have no effect).
+     * The offset is supplied via the constructor / {@link #openNewFile(File, long)} instead.
      */
+    @Getter(AccessLevel.NONE)
+    @Setter(AccessLevel.NONE)
     private long startByteOffset = 0L;
 
     /** FASTA entries, each one with a unique fastaReaderId, header line string and basic sequence information */
@@ -98,9 +105,20 @@ public final class FastaReader implements AutoCloseable, SequenceFormatReader {
      * {@code startByteOffset} are ignored during scanning; header detection still requires a {@code '>'} at
      * the start of a line, so it is safe to point the offset at (or slightly before) the FASTA block.
      *
+     * <p><b>Coordinate space:</b> the offset is an offset into the reader's <em>decompressed</em> byte
+     * stream. For a BGZF-compressed file it is <em>not</em> a raw compressed-file offset — it is measured
+     * against the uncompressed content (see {@link uk.ac.ebi.embl.fastareader.io.SeekableByteReader#size()}).
+     * For an uncompressed file the two coincide.
+     *
+     * <p><b>Caution:</b> because header detection requires a {@code '>'} at the start of a line, an offset
+     * that lands <em>inside</em> the intended first header line (past its {@code '>'}) causes that entry to
+     * be silently skipped and scanning to resume at the next header. Point the offset at or before the
+     * start of the FASTA block to avoid dropping the first record.
+     *
      * @param fastaFile FASTA-bearing file to open (must not be {@code null})
      * @param alphabet the {@link SequenceAlphabet} used to interpret the sequence bytes
-     * @param startByteOffset absolute byte offset to begin scanning from; must be within {@code [0, fileSize]}
+     * @param startByteOffset absolute offset into the decompressed byte stream to begin scanning from; must be
+     *     within {@code [0, decompressedSize]}
      */
     public FastaReader(File fastaFile, SequenceAlphabet alphabet, long startByteOffset)
             throws FastaFileException, IOException {
@@ -290,8 +308,13 @@ public final class FastaReader implements AutoCloseable, SequenceFormatReader {
     /**
      * Closes the current file (if any) and opens a new one, scanning from {@code startByteOffset} onwards.
      *
+     * <p>{@code startByteOffset} follows the same semantics as
+     * {@link #FastaReader(File, SequenceAlphabet, long)}: it is an offset into the reader's decompressed byte
+     * stream, and an offset that lands inside the first header line silently drops that record.
+     *
      * @param fastaFile FASTA-bearing file to open (must not be {@code null})
-     * @param startByteOffset absolute byte offset to begin scanning from; must be within {@code [0, fileSize]}
+     * @param startByteOffset absolute offset into the decompressed byte stream to begin scanning from; must be
+     *     within {@code [0, decompressedSize]}
      */
     public void openNewFile(File fastaFile, long startByteOffset) throws FastaFileException, IOException {
         close();

@@ -192,12 +192,82 @@ class FastaReaderIntegrationTest {
     }
 
     @Test
+    void tolerantOfOffsetLandingMidLine() throws Exception {
+        // An offset that lands in the MIDDLE of an annotation line (previous byte is not LF/CR) must still
+        // be tolerated: the partial line is skipped and scanning resumes at the next line-start header.
+        File gff3 = TestResources.file("fasta", "gff3_with_embedded_fasta.txt");
+        byte[] bytes = Files.readAllBytes(gff3.toPath());
+        long geneLineStart = indexOf(bytes, "ID1\tena\tgene".getBytes(StandardCharsets.UTF_8));
+        assertTrue(geneLineStart > 0, "annotation line must exist");
+        long midLineOffset = geneLineStart + 5; // inside the word, previous byte is not LF/CR
+        assertNotEquals((byte) '\n', bytes[(int) midLineOffset - 1]);
+
+        try (FastaReader service = new FastaReader(gff3, SequenceAlphabet.defaultNucleotideAlphabet(), midLineOffset)) {
+            assertEquals(List.of(0L, 1L), service.getOrderedIds());
+            assertEquals(
+                    "NNACACGTTTNN",
+                    service.getSequenceSlice(
+                            0L, 1, service.getStats(0L).totalBases(), SequenceRangeOption.WHOLE_SEQUENCE));
+        }
+    }
+
+    @Test
+    void offsetInsideFirstHeaderLineDropsThatRecord() throws Exception {
+        // Documented sharp edge: an offset that lands INSIDE the first header line (past its '>') causes
+        // that record to be silently skipped; scanning resumes at the next line-start header.
+        File gff3 = TestResources.file("fasta", "gff3_with_embedded_fasta.txt");
+        byte[] bytes = Files.readAllBytes(gff3.toPath());
+        long insideId1Header = indexOf(bytes, ">ID1".getBytes(StandardCharsets.UTF_8)) + 2;
+
+        try (FastaReader service =
+                new FastaReader(gff3, SequenceAlphabet.defaultNucleotideAlphabet(), insideId1Header)) {
+            // ID1 is dropped; only ID2 remains, re-numbered from 0.
+            assertEquals(List.of(0L), service.getOrderedIds());
+            assertTrue(service.getHeaderline(0L).orElseThrow().contains("circular"), "remaining record is ID2");
+            assertEquals(
+                    "ACGTGGGG",
+                    service.getSequenceSlice(
+                            0L, 1, service.getStats(0L).totalBases(), SequenceRangeOption.WHOLE_SEQUENCE));
+        }
+    }
+
+    @Test
+    void inBoundsOffsetWithNoFollowingHeaderYieldsNoEntries() throws Exception {
+        // An in-bounds offset positioned after the last header (inside ID2's sequence) finds no '>' at a
+        // line start, so no entries are produced.
+        File gff3 = TestResources.file("fasta", "gff3_with_embedded_fasta.txt");
+        byte[] bytes = Files.readAllBytes(gff3.toPath());
+        long insideLastSequence = indexOf(bytes, ">ID2".getBytes(StandardCharsets.UTF_8)) + 4;
+
+        try (FastaReader service =
+                new FastaReader(gff3, SequenceAlphabet.defaultNucleotideAlphabet(), insideLastSequence)) {
+            assertTrue(service.getOrderedIds().isEmpty(), "no header after offset -> no entries");
+        }
+    }
+
+    @Test
+    void offsetEqualToFileSizeYieldsNoEntries() throws Exception {
+        File gff3 = TestResources.file("fasta", "gff3_with_embedded_fasta.txt");
+        try (FastaReader service = new FastaReader(gff3, SequenceAlphabet.defaultNucleotideAlphabet(), gff3.length())) {
+            assertTrue(service.getOrderedIds().isEmpty(), "offset at EOF -> no entries");
+        }
+    }
+
+    @Test
     void rejectsOffsetBeyondFileSize() throws IOException {
         File gff3 = TestResources.file("fasta", "gff3_with_embedded_fasta.txt");
         long tooBig = gff3.length() + 1;
         assertThrows(
                 FastaFileException.class,
                 () -> new FastaReader(gff3, SequenceAlphabet.defaultNucleotideAlphabet(), tooBig));
+    }
+
+    @Test
+    void rejectsNegativeOffset() {
+        File gff3 = TestResources.file("fasta", "gff3_with_embedded_fasta.txt");
+        assertThrows(
+                FastaFileException.class,
+                () -> new FastaReader(gff3, SequenceAlphabet.defaultNucleotideAlphabet(), -1L));
     }
 
     private static long indexOf(byte[] haystack, byte[] needle) {
