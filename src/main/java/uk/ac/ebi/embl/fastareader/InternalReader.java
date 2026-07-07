@@ -219,6 +219,8 @@ class InternalReader implements AutoCloseable {
                 }
                 break;
             case PLAIN_SEQUENCE:
+                // startByteOffset applies only to the FASTA header scan; a single plain sequence is always
+                // read from the start of the stream. (Not reachable via FastaReader, whose format is FASTA.)
                 Optional<SequenceEntryMetadata> sequenceEntryMetadata = readFileAsSequence();
                 if (sequenceEntryMetadata.isEmpty()) break;
                 entries.add(sequenceEntryMetadata.get());
