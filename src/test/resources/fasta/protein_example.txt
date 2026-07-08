@@ -1,0 +1,4 @@
+>prot1 translated CDS
+XXMNNKYXX
+>prot2 translated CDS
+MKTAYIAKQR*

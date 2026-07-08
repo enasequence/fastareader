@@ -61,8 +61,8 @@ public final class SequenceIndexBuilder {
 
         long startN = 0, endN = 0;
         if (!lines.isEmpty()) {
-            startN = countLeadingNs(firstBaseByte, lastBaseByte); // count continuous Ns from the start
-            endN = countTrailingNs(firstBaseByte, lastBaseByte); // count continuous Ns from the end
+            startN = countLeadingGapBases(firstBaseByte, lastBaseByte); // continuous gap bases from the start
+            endN = countTrailingGapBases(firstBaseByte, lastBaseByte); // continuous gap bases from the end
         }
 
         return new SequenceIndex(
@@ -176,7 +176,7 @@ public final class SequenceIndexBuilder {
 
     private void observeGapStatus(byte b, ScanState s) {
         long base = s.basesSoFar + s.basesInLine + 1;
-        if (alphabet.isNBase(b)) {
+        if (alphabet.isGapBase(b)) {
             if (s.currentGapStartBase < 0) s.currentGapStartBase = base;
         } else {
             commitOpenGapIfAny(s);
@@ -209,8 +209,8 @@ public final class SequenceIndexBuilder {
     // =                  window filter & edge N counting                  =
     // =====================================================================
 
-    /** count 'N'/'n' from the start of the first sequence line only. */
-    private long countLeadingNs(long byteStart, long byteEnd) throws IOException {
+    /** count leading gap bases (e.g. 'N'/'X' per the alphabet) from the start of the first sequence line only. */
+    private long countLeadingGapBases(long byteStart, long byteEnd) throws IOException {
         long remaining = byteEnd - byteStart + 1;
         long offset = byteStart;
         long count = 0;
@@ -225,9 +225,9 @@ public final class SequenceIndexBuilder {
             buf.flip();
             for (int i = 0; i < n; i++) {
                 byte b = buf.get(i);
-                if (alphabet.isNBase(b)) {
+                if (alphabet.isGapBase(b)) {
                     count++;
-                } else if (alphabet.isAllowedBase(b)) return count; // found non-N base
+                } else if (alphabet.isAllowedBase(b)) return count; // found non-gap base
             }
             remaining -= n;
             offset += n;
@@ -235,8 +235,8 @@ public final class SequenceIndexBuilder {
         return count;
     }
 
-    /** count 'N'/'n' at the tail of the last sequence line only. */
-    private long countTrailingNs(long byteStart, long byteEnd) throws IOException {
+    /** count trailing gap bases (e.g. 'N'/'X' per the alphabet) at the tail of the last sequence line only. */
+    private long countTrailingGapBases(long byteStart, long byteEnd) throws IOException {
         long remaining = byteEnd - byteStart + 1;
         long trailing = 0;
         long offset = byteEnd + 1; // the +1 allows correct reading
@@ -255,8 +255,8 @@ public final class SequenceIndexBuilder {
             buf.flip();
             for (int i = n - 1; i > -1; i--) { // read from the back
                 byte b = buf.get(i);
-                if (alphabet.isNBase(b)) trailing++;
-                else if (alphabet.isAllowedBase(b)) return trailing; // first non-N base
+                if (alphabet.isGapBase(b)) trailing++;
+                else if (alphabet.isAllowedBase(b)) return trailing; // first non-gap base
             }
 
             remaining -= n;
