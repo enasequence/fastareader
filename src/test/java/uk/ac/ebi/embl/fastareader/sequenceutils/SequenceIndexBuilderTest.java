@@ -351,6 +351,103 @@ public class SequenceIndexBuilderTest {
     }
 
     @Test
+    void regularWrappedRecordUsesConstantMemoryIndex() throws Exception {
+        // Every line 4 bases wide except a shorter final line -> regular fast path.
+        String header = ">R\n";
+        String body = "ACGT\nACGT\nACGT\nAC\n";
+        String next = ">K\n";
+        Path p = writeAscii(tempDir, "regular.fa", header + body + next);
+
+        try (SeekableByteReader ch = openRead(p)) {
+            long seqStart = header.getBytes(StandardCharsets.US_ASCII).length;
+            SequenceIndexBuilder sib =
+                    new SequenceIndexBuilder(ch, SequenceAlphabet.defaultNucleotideAlphabet(), Optional.of(GT));
+            SequenceIndex idx = sib.buildFrom(seqStart);
+
+            assertInstanceOf(RegularLineIndex.class, idx.lineIndex, "regular record must use the O(1) index");
+            assertEquals(14, idx.totalBases());
+            assertEquals(4, idx.linesView().size());
+            assertEquals(seqStart, idx.firstBaseByte);
+
+            // Byte offsets must match a per-line lookup over the same lines.
+            List<LineEntry> expanded = idx.linesView();
+            for (long base = 1; base <= 14; base++) {
+                LineEntry expected = lineContaining(expanded, base);
+                LineEntry actual = idx.lineIndex.lineContainingBase(base);
+                assertEquals(
+                        expected.byteStart + (base - expected.baseStart),
+                        actual.byteStart + (base - actual.baseStart),
+                        "byte offset @" + base);
+            }
+        }
+    }
+
+    @Test
+    void crlfSeparatorsStayRegular() throws Exception {
+        String header = ">R\n";
+        String body = "ACGT\r\nACGT\r\nACGT\r\n";
+        Path p = writeAscii(tempDir, "crlf.fa", header + body);
+
+        try (SeekableByteReader ch = openRead(p)) {
+            SequenceAlphabet alphabet = new SequenceAlphabet("ACGTNacgtn", "\n\r");
+            long seqStart = header.getBytes(StandardCharsets.US_ASCII).length;
+            SequenceIndexBuilder sib = new SequenceIndexBuilder(ch, alphabet, Optional.of(GT));
+            SequenceIndex idx = sib.buildFrom(seqStart);
+
+            assertInstanceOf(RegularLineIndex.class, idx.lineIndex, "uniform CRLF wrapping is still regular");
+            assertEquals(12, idx.totalBases());
+        }
+    }
+
+    @Test
+    void irregularMiddleLineFallsBackToExplicit() throws Exception {
+        // A short line in the middle (not the last) breaks regularity.
+        String header = ">R\n";
+        String body = "ACGT\nAC\nACGT\n";
+        Path p = writeAscii(tempDir, "irregular.fa", header + body);
+
+        try (SeekableByteReader ch = openRead(p)) {
+            long seqStart = header.getBytes(StandardCharsets.US_ASCII).length;
+            SequenceIndexBuilder sib =
+                    new SequenceIndexBuilder(ch, SequenceAlphabet.defaultNucleotideAlphabet(), Optional.of(GT));
+            SequenceIndex idx = sib.buildFrom(seqStart);
+
+            assertInstanceOf(SegmentedLineIndex.class, idx.lineIndex, "irregular record must fall back");
+            assertEquals(2, ((SegmentedLineIndex) idx.lineIndex).segments.size(), "one break -> two segments");
+            assertEquals(3, idx.linesView().size());
+            assertEquals(10, idx.totalBases());
+            assertEquals(4, idx.linesView().get(0).lengthBases());
+            assertEquals(2, idx.linesView().get(1).lengthBases());
+            assertEquals(4, idx.linesView().get(2).lengthBases());
+        }
+    }
+
+    @Test
+    void blankLineMidRecordFallsBackToExplicit() throws Exception {
+        String header = ">R\n";
+        String body = "ACGT\nACGT\n\nACGT\n";
+        Path p = writeAscii(tempDir, "blankmid.fa", header + body);
+
+        try (SeekableByteReader ch = openRead(p)) {
+            long seqStart = header.getBytes(StandardCharsets.US_ASCII).length;
+            SequenceIndexBuilder sib =
+                    new SequenceIndexBuilder(ch, SequenceAlphabet.defaultNucleotideAlphabet(), Optional.of(GT));
+            SequenceIndex idx = sib.buildFrom(seqStart);
+
+            assertInstanceOf(SegmentedLineIndex.class, idx.lineIndex, "blank line changes stride -> segmented");
+            assertEquals(3, idx.linesView().size());
+            assertEquals(12, idx.totalBases());
+        }
+    }
+
+    private static LineEntry lineContaining(List<LineEntry> lines, long base) {
+        for (LineEntry line : lines) {
+            if (base >= line.baseStart && base <= line.baseEnd) return line;
+        }
+        throw new IllegalArgumentException("no line contains base " + base);
+    }
+
+    @Test
     void doesNotTolerateBreaksWhenReadingContinuousSequence() throws Exception {
         String l1 = "NACG\n"; // leading N = 1
         String l2 = "N>NNN\n"; // middle line of Ns — must NOT affect start/end N counts
