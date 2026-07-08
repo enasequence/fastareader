@@ -180,7 +180,29 @@ class InternalReader implements AutoCloseable {
     }
 
     List<SequenceEntryMetadata> readFile() throws SequenceReadingException, IOException {
-        long position = 0;
+        return readFile(0L);
+    }
+
+    /**
+     * Scans the file starting at {@code startByteOffset}, ignoring any bytes before it.
+     *
+     * <p>This supports partial files where the sequence content does not begin at byte 0 — for example a
+     * GFF3 file whose leading annotation lines are followed by an embedded FASTA section. The caller is
+     * responsible for supplying the byte offset at (or before) which the FASTA content starts; header
+     * detection still requires a {@code '>'} at the start of a line, so an offset that lands on preceding
+     * non-FASTA lines is tolerated (those lines are skipped).
+     *
+     * <p>The offset is measured against the reader's decompressed byte stream ({@code reader.size()}); for a
+     * BGZF-backed reader it is therefore an uncompressed-content offset, not a compressed-file offset.
+     *
+     * <p>The caller is expected to have already validated {@code startByteOffset} against {@code [0, size()]};
+     * this method does not re-check it.
+     *
+     * @param startByteOffset absolute offset into the decompressed byte stream to begin scanning from
+     *     (0 = whole file)
+     */
+    List<SequenceEntryMetadata> readFile(long startByteOffset) throws SequenceReadingException, IOException {
+        long position = startByteOffset;
         List<SequenceEntryMetadata> entries = new ArrayList<>();
 
         switch (fileFormat) {
@@ -196,6 +218,8 @@ class InternalReader implements AutoCloseable {
                 }
                 break;
             case PLAIN_SEQUENCE:
+                // startByteOffset applies only to the FASTA header scan; a single plain sequence is always
+                // read from the start of the stream. (Not reachable via FastaReader, whose format is FASTA.)
                 Optional<SequenceEntryMetadata> sequenceEntryMetadata = readFileAsSequence();
                 if (sequenceEntryMetadata.isEmpty()) break;
                 entries.add(sequenceEntryMetadata.get());

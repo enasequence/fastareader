@@ -14,10 +14,13 @@ import static org.junit.jupiter.api.Assertions.*;
 
 import java.io.File;
 import java.io.IOException;
+import java.nio.charset.StandardCharsets;
+import java.nio.file.Files;
 import java.util.List;
 import org.junit.jupiter.api.Test;
 import uk.ac.ebi.embl.fastareader.exception.FastaFileException;
 import uk.ac.ebi.embl.fastareader.sequenceutils.GapRegion;
+import uk.ac.ebi.embl.fastareader.sequenceutils.SequenceAlphabet;
 
 class FastaReaderIntegrationTest {
 
@@ -132,6 +135,150 @@ class FastaReaderIntegrationTest {
                             + "AAAAAAAAAAAA",
                     sequence2withoutNbases);
         }
+    }
+
+    @Test
+    void readsEmbeddedFastaFromExplicitByteOffset() throws Exception {
+        // A GFF3 file: leading annotation lines followed by an embedded FASTA section whose bytes are
+        // identical to fasta/example.txt. Starting the scan at the offset of the first '>' header must
+        // yield exactly the same entries as reading example.txt from byte 0.
+        File gff3 = TestResources.file("fasta", "gff3_with_embedded_fasta.txt");
+        byte[] bytes = Files.readAllBytes(gff3.toPath());
+        long fastaOffset = indexOf(bytes, ">ID1".getBytes(StandardCharsets.UTF_8));
+        assertTrue(fastaOffset > 0, "embedded FASTA must not start at byte 0");
+
+        try (FastaReader service = new FastaReader(gff3, SequenceAlphabet.defaultNucleotideAlphabet(), fastaOffset)) {
+            assertEquals(List.of(0L, 1L), service.getOrderedIds());
+
+            assertEquals(
+                    ">ID1 | {\"description\":\"x\", \"molecule_type\":\"dna\", \"topology\":\"linear\"}",
+                    service.getHeaderline(0L).orElseThrow());
+            assertEquals(
+                    ">ID2 | {\"description\":\"x\", \"molecule_type\":\"dna\", \"topology\":\"circular\"}",
+                    service.getHeaderline(1L).orElseThrow());
+
+            SequenceStats entry1 = service.getStats(0L);
+            assertEquals(2, entry1.leadingNsCount(), "ID1 leading Ns");
+            assertEquals(2, entry1.trailingNsCount(), "ID1 trailing Ns");
+
+            assertEquals(
+                    "NNACACGTTTNN",
+                    service.getSequenceSlice(0L, 1, entry1.totalBases(), SequenceRangeOption.WHOLE_SEQUENCE));
+            assertEquals(List.of(new GapRegion(1, 2), new GapRegion(11, 12)), service.getGapRegions(0L));
+            assertEquals(
+                    "ACGTGGGG",
+                    service.getSequenceSlice(
+                            1L, 1, service.getStats(1L).totalBases(), SequenceRangeOption.WHOLE_SEQUENCE));
+        }
+    }
+
+    @Test
+    void tolerantOfOffsetLandingOnNonHeaderPrefixLine() throws Exception {
+        // An offset that lands on the '##FASTA' directive line (before the first '>' header) is tolerated:
+        // preceding non-header lines are skipped and scanning still finds the FASTA entries.
+        File gff3 = TestResources.file("fasta", "gff3_with_embedded_fasta.txt");
+        byte[] bytes = Files.readAllBytes(gff3.toPath());
+        long directiveOffset = indexOf(bytes, "##FASTA".getBytes(StandardCharsets.UTF_8));
+        assertTrue(directiveOffset > 0, "##FASTA directive must exist past byte 0");
+
+        try (FastaReader service =
+                new FastaReader(gff3, SequenceAlphabet.defaultNucleotideAlphabet(), directiveOffset)) {
+            assertEquals(List.of(0L, 1L), service.getOrderedIds());
+            assertEquals(
+                    "NNACACGTTTNN",
+                    service.getSequenceSlice(
+                            0L, 1, service.getStats(0L).totalBases(), SequenceRangeOption.WHOLE_SEQUENCE));
+        }
+    }
+
+    @Test
+    void tolerantOfOffsetLandingMidLine() throws Exception {
+        // An offset that lands in the MIDDLE of an annotation line (previous byte is not LF/CR) must still
+        // be tolerated: the partial line is skipped and scanning resumes at the next line-start header.
+        File gff3 = TestResources.file("fasta", "gff3_with_embedded_fasta.txt");
+        byte[] bytes = Files.readAllBytes(gff3.toPath());
+        long geneLineStart = indexOf(bytes, "ID1\tena\tgene".getBytes(StandardCharsets.UTF_8));
+        assertTrue(geneLineStart > 0, "annotation line must exist");
+        long midLineOffset = geneLineStart + 5; // inside the word, previous byte is not LF/CR
+        assertNotEquals((byte) '\n', bytes[(int) midLineOffset - 1]);
+
+        try (FastaReader service = new FastaReader(gff3, SequenceAlphabet.defaultNucleotideAlphabet(), midLineOffset)) {
+            assertEquals(List.of(0L, 1L), service.getOrderedIds());
+            assertEquals(
+                    "NNACACGTTTNN",
+                    service.getSequenceSlice(
+                            0L, 1, service.getStats(0L).totalBases(), SequenceRangeOption.WHOLE_SEQUENCE));
+        }
+    }
+
+    @Test
+    void offsetInsideFirstHeaderLineDropsThatRecord() throws Exception {
+        // Documented sharp edge: an offset that lands INSIDE the first header line (past its '>') causes
+        // that record to be silently skipped; scanning resumes at the next line-start header.
+        File gff3 = TestResources.file("fasta", "gff3_with_embedded_fasta.txt");
+        byte[] bytes = Files.readAllBytes(gff3.toPath());
+        long insideId1Header = indexOf(bytes, ">ID1".getBytes(StandardCharsets.UTF_8)) + 2;
+
+        try (FastaReader service =
+                new FastaReader(gff3, SequenceAlphabet.defaultNucleotideAlphabet(), insideId1Header)) {
+            // ID1 is dropped; only ID2 remains, re-numbered from 0.
+            assertEquals(List.of(0L), service.getOrderedIds());
+            assertTrue(service.getHeaderline(0L).orElseThrow().contains("circular"), "remaining record is ID2");
+            assertEquals(
+                    "ACGTGGGG",
+                    service.getSequenceSlice(
+                            0L, 1, service.getStats(0L).totalBases(), SequenceRangeOption.WHOLE_SEQUENCE));
+        }
+    }
+
+    @Test
+    void inBoundsOffsetWithNoFollowingHeaderYieldsNoEntries() throws Exception {
+        // An in-bounds offset positioned after the last header (inside ID2's sequence) finds no '>' at a
+        // line start, so no entries are produced.
+        File gff3 = TestResources.file("fasta", "gff3_with_embedded_fasta.txt");
+        byte[] bytes = Files.readAllBytes(gff3.toPath());
+        long insideLastSequence = indexOf(bytes, ">ID2".getBytes(StandardCharsets.UTF_8)) + 4;
+
+        try (FastaReader service =
+                new FastaReader(gff3, SequenceAlphabet.defaultNucleotideAlphabet(), insideLastSequence)) {
+            assertTrue(service.getOrderedIds().isEmpty(), "no header after offset -> no entries");
+        }
+    }
+
+    @Test
+    void offsetEqualToFileSizeYieldsNoEntries() throws Exception {
+        File gff3 = TestResources.file("fasta", "gff3_with_embedded_fasta.txt");
+        try (FastaReader service = new FastaReader(gff3, SequenceAlphabet.defaultNucleotideAlphabet(), gff3.length())) {
+            assertTrue(service.getOrderedIds().isEmpty(), "offset at EOF -> no entries");
+        }
+    }
+
+    @Test
+    void rejectsOffsetBeyondFileSize() throws IOException {
+        File gff3 = TestResources.file("fasta", "gff3_with_embedded_fasta.txt");
+        long tooBig = gff3.length() + 1;
+        assertThrows(
+                FastaFileException.class,
+                () -> new FastaReader(gff3, SequenceAlphabet.defaultNucleotideAlphabet(), tooBig));
+    }
+
+    @Test
+    void rejectsNegativeOffset() {
+        File gff3 = TestResources.file("fasta", "gff3_with_embedded_fasta.txt");
+        assertThrows(
+                FastaFileException.class,
+                () -> new FastaReader(gff3, SequenceAlphabet.defaultNucleotideAlphabet(), -1L));
+    }
+
+    private static long indexOf(byte[] haystack, byte[] needle) {
+        outer:
+        for (int i = 0; i <= haystack.length - needle.length; i++) {
+            for (int j = 0; j < needle.length; j++) {
+                if (haystack[i + j] != needle[j]) continue outer;
+            }
+            return i;
+        }
+        return -1;
     }
 
     @Test

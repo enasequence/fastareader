@@ -81,6 +81,50 @@ public class SequenceFormatReaderFactory {
     }
 
     /**
+     * Opens a reader for a FASTA submission whose content begins at {@code startByteOffset} rather than at
+     * the start of the file.
+     *
+     * <p>This supports partial files that embed FASTA after a leading non-FASTA prefix — for example a GFF3
+     * file whose annotation lines are followed by an embedded FASTA section. Bytes before
+     * {@code startByteOffset} are ignored while scanning. Uses the default alphabet defined in
+     * {@link SequenceAlphabet}.</p>
+     *
+     * <p>The offset is measured against the reader's <em>decompressed</em> byte stream, so for a
+     * BGZF-compressed file it is not a raw compressed-file offset; see
+     * {@link uk.ac.ebi.embl.fastareader.FastaReader#FastaReader(File, SequenceAlphabet, long)} for the full
+     * coordinate-space and header-boundary contract.
+     *
+     * @param fastaFile file containing the embedded FASTA content (must not be {@code null})
+     * @param startByteOffset absolute offset into the decompressed byte stream to begin scanning from; must be
+     *     within {@code [0, decompressedSize]}
+     * @return a {@link SequenceFormatReader} backed by the FASTA content beginning at {@code startByteOffset}
+     * @throws Exception if the file cannot be opened, parsed, or validated
+     */
+    public static SequenceFormatReader readFasta(File fastaFile, long startByteOffset) throws Exception {
+        return new FastaReader(fastaFile, SequenceAlphabet.defaultNucleotideAlphabet(), startByteOffset);
+    }
+
+    /**
+     * Opens a reader for a FASTA submission whose content begins at {@code startByteOffset} rather than at
+     * the start of the file, using a caller-supplied alphabet.
+     *
+     * <p>The offset is measured against the reader's <em>decompressed</em> byte stream; see
+     * {@link uk.ac.ebi.embl.fastareader.FastaReader#FastaReader(File, SequenceAlphabet, long)} for the full
+     * coordinate-space and header-boundary contract.
+     *
+     * @param fastaFile file containing the embedded FASTA content (must not be {@code null})
+     * @param alphabet the {@link SequenceAlphabet} used to interpret the sequence bytes
+     * @param startByteOffset absolute offset into the decompressed byte stream to begin scanning from; must be
+     *     within {@code [0, decompressedSize]}
+     * @return a {@link SequenceFormatReader} backed by the FASTA content beginning at {@code startByteOffset}
+     * @throws Exception if the file cannot be opened, parsed, or validated
+     */
+    public static SequenceFormatReader readFasta(File fastaFile, SequenceAlphabet alphabet, long startByteOffset)
+            throws Exception {
+        return new FastaReader(fastaFile, alphabet, startByteOffset);
+    }
+
+    /**
      * Opens a reader for a plain (single-record) sequence submission.
      *
      * <p>This uses a wrapper {@link SequenceReaderWrapper} which enables interoperability in case both FASTA, plain sequences and/or other formats are ingested simoultaneously.

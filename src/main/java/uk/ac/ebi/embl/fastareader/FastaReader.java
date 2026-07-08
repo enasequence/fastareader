@@ -16,6 +16,7 @@ import java.io.IOException;
 import java.io.Reader;
 import java.util.*;
 import java.util.stream.Collectors;
+import lombok.AccessLevel;
 import lombok.Getter;
 import lombok.Setter;
 import uk.ac.ebi.embl.fastareader.api.SequenceFormatReader;
@@ -59,6 +60,19 @@ public final class FastaReader implements AutoCloseable, SequenceFormatReader {
     private InternalReader reader;
     private SequenceAlphabet alphabet;
 
+    /**
+     * Absolute byte offset at which FASTA scanning begins. 0 means the whole file is scanned. A positive
+     * value lets the reader ignore a leading non-FASTA prefix — e.g. the annotation section of a GFF3 file
+     * that ends with an embedded FASTA block.
+     *
+     * <p>Internal-only state: it is consumed once during scanning ({@link #initAndLoad(File)}), so exposing a
+     * public getter/setter would be a footgun (a post-construction setter would silently have no effect).
+     * The offset is supplied via the constructor / {@link #openNewFile(File, long)} instead.
+     */
+    @Getter(AccessLevel.NONE)
+    @Setter(AccessLevel.NONE)
+    private long startByteOffset = 0L;
+
     /** FASTA entries, each one with a unique fastaReaderId, header line string and basic sequence information */
     @Getter
     private List<Long> orderedIds = new ArrayList<>();
@@ -80,9 +94,38 @@ public final class FastaReader implements AutoCloseable, SequenceFormatReader {
      * Adds the option to define your own desired SequenceAlphabet and a list of tolerable characters in the sequence (usually eg. \n, \r)
      * */
     public FastaReader(File fastaFile, SequenceAlphabet alphabet) throws FastaFileException, IOException {
+        this(fastaFile, alphabet, 0L);
+    }
+
+    /**
+     * Initializes FASTA reader on a partial file, skimming from {@code startByteOffset} onwards right away.
+     *
+     * <p>Use this when the FASTA content does not begin at the start of the file, for example a GFF3 file
+     * whose leading annotation lines are followed by an embedded FASTA section. Bytes before
+     * {@code startByteOffset} are ignored during scanning; header detection still requires a {@code '>'} at
+     * the start of a line, so it is safe to point the offset at (or slightly before) the FASTA block.
+     *
+     * <p><b>Coordinate space:</b> the offset is an offset into the reader's <em>decompressed</em> byte
+     * stream. For a BGZF-compressed file it is <em>not</em> a raw compressed-file offset — it is measured
+     * against the uncompressed content (see {@link uk.ac.ebi.embl.fastareader.io.SeekableByteReader#size()}).
+     * For an uncompressed file the two coincide.
+     *
+     * <p><b>Caution:</b> because header detection requires a {@code '>'} at the start of a line, an offset
+     * that lands <em>inside</em> the intended first header line (past its {@code '>'}) causes that entry to
+     * be silently skipped and scanning to resume at the next header. Point the offset at or before the
+     * start of the FASTA block to avoid dropping the first record.
+     *
+     * @param fastaFile FASTA-bearing file to open (must not be {@code null})
+     * @param alphabet the {@link SequenceAlphabet} used to interpret the sequence bytes
+     * @param startByteOffset absolute offset into the decompressed byte stream to begin scanning from; must be
+     *     within {@code [0, decompressedSize]}
+     */
+    public FastaReader(File fastaFile, SequenceAlphabet alphabet, long startByteOffset)
+            throws FastaFileException, IOException {
         this.file = Objects.requireNonNull(fastaFile, "sequenceFile");
         resetData();
         this.alphabet = alphabet;
+        this.startByteOffset = startByteOffset;
         initAndLoad(fastaFile);
     }
 
@@ -90,6 +133,10 @@ public final class FastaReader implements AutoCloseable, SequenceFormatReader {
         SeekableByteReader byteReader = openAndValidateUtf8(fastaFile);
         boolean success = false;
         try {
+            if (startByteOffset < 0 || startByteOffset > byteReader.size()) {
+                throw new FastaFileException("startByteOffset " + startByteOffset
+                        + " is out of bounds for file of size " + byteReader.size());
+            }
             this.reader = new InternalReader(fastaFile, this.alphabet, FILE_FORMAT, byteReader);
             loadEntries();
             success = true;
@@ -259,9 +306,25 @@ public final class FastaReader implements AutoCloseable, SequenceFormatReader {
     // ---------------------------- interactions with the reader ----------------------------
 
     public void openNewFile(File fastaFile) throws FastaFileException, IOException {
+        openNewFile(fastaFile, 0L);
+    }
+
+    /**
+     * Closes the current file (if any) and opens a new one, scanning from {@code startByteOffset} onwards.
+     *
+     * <p>{@code startByteOffset} follows the same semantics as
+     * {@link #FastaReader(File, SequenceAlphabet, long)}: it is an offset into the reader's decompressed byte
+     * stream, and an offset that lands inside the first header line silently drops that record.
+     *
+     * @param fastaFile FASTA-bearing file to open (must not be {@code null})
+     * @param startByteOffset absolute offset into the decompressed byte stream to begin scanning from; must be
+     *     within {@code [0, decompressedSize]}
+     */
+    public void openNewFile(File fastaFile, long startByteOffset) throws FastaFileException, IOException {
         close();
         this.file = Objects.requireNonNull(fastaFile, "file");
         resetData();
+        this.startByteOffset = startByteOffset;
         initAndLoad(fastaFile);
     }
 
@@ -342,7 +405,7 @@ public final class FastaReader implements AutoCloseable, SequenceFormatReader {
     private void loadEntries() throws IOException, FastaFileException {
         List<SequenceEntryMetadata> readEntries;
         try {
-            readEntries = reader.readFile();
+            readEntries = reader.readFile(startByteOffset);
         } catch (SequenceReadingException e) {
             throw new FastaFileException(e);
         }
