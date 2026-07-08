@@ -13,7 +13,6 @@ package uk.ac.ebi.embl.fastareader.sequenceutils;
 import java.io.IOException;
 import java.nio.ByteBuffer;
 import java.util.ArrayList;
-import java.util.List;
 import java.util.Optional;
 import uk.ac.ebi.embl.fastareader.exception.SequenceReadingException;
 import uk.ac.ebi.embl.fastareader.io.SeekableByteReader;
@@ -41,10 +40,10 @@ public final class SequenceIndexBuilder {
 
     /** Build a SequenceIndex starting at 'startPos' (first byte after header line). */
     public SequenceIndex buildFrom(long startPos) throws IOException, SequenceReadingException {
-        ScanState s = new ScanState(startPos, fileSize);
+        ScanState s = new ScanState(startPos, fileSize, new LineSegmenter());
         ByteBuffer buf = newScanBuffer();
 
-        // ------------- scan raw bytes into provisional "sequence lines" -------------
+        // ------------- single pass: scan raw bytes, segmenting lines on the fly -------------
         while (s.pos < fileSize) {
             int n = fillBuffer(buf, s.pos);
             if (n <= 0) break;
@@ -54,13 +53,12 @@ public final class SequenceIndexBuilder {
         commitOpenGapIfAny(s);
         commitOpenLineIfAny(s);
 
-        // ------------- compute metadata -------------
-        List<LineEntry> lines = s.lines;
-        long firstBaseByte = lines.isEmpty() ? -1 : lines.get(0).byteStart;
-        long lastBaseByte = lines.isEmpty() ? -1 : (lines.get(lines.size() - 1).byteEndExclusive - 1);
+        LineIndex lineIndex = s.segmenter.build();
+        long firstBaseByte = s.firstBaseByte;
+        long lastBaseByte = s.lastBaseByte;
 
         long startN = 0, endN = 0;
-        if (!lines.isEmpty()) {
+        if (firstBaseByte >= 0) {
             startN = countLeadingGapBases(firstBaseByte, lastBaseByte); // continuous gap bases from the start
             endN = countTrailingGapBases(firstBaseByte, lastBaseByte); // continuous gap bases from the end
         }
@@ -70,7 +68,7 @@ public final class SequenceIndexBuilder {
                 startN,
                 lastBaseByte,
                 endN,
-                lines,
+                lineIndex,
                 s.nextHdr,
                 s.charCounts,
                 alphabet.getAllowedBaseCharList(),
@@ -94,12 +92,13 @@ public final class SequenceIndexBuilder {
         long currentGapStartBase = -1;
         final long[] charCounts = new long[128]; // counts allowed character appearances
 
-        final ArrayList<LineEntry> lines = new ArrayList<>(256);
+        final LineSegmenter segmenter;
         final ArrayList<GapRegion> gapRegions = new ArrayList<>(256);
 
-        ScanState(long startPos, long charAtEndIndex) {
+        ScanState(long startPos, long charAtEndIndex, LineSegmenter segmenter) {
             this.pos = startPos;
             this.nextHdr = charAtEndIndex;
+            this.segmenter = segmenter;
         }
     }
 
@@ -197,7 +196,7 @@ public final class SequenceIndexBuilder {
         long byteStart = s.lineFirstByte;
         long byteEndEx = s.lineLastByte + 1; // half-open
 
-        s.lines.add(new LineEntry(baseStart, baseEnd, byteStart, byteEndEx));
+        s.segmenter.add(baseStart, baseEnd, byteStart, byteEndEx);
 
         s.basesSoFar += s.basesInLine;
         s.basesInLine = 0;
@@ -263,4 +262,5 @@ public final class SequenceIndexBuilder {
         }
         return trailing;
     }
+
 }
