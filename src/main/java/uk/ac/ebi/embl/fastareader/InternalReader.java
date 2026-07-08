@@ -195,14 +195,13 @@ class InternalReader implements AutoCloseable {
      * <p>The offset is measured against the reader's decompressed byte stream ({@code reader.size()}); for a
      * BGZF-backed reader it is therefore an uncompressed-content offset, not a compressed-file offset.
      *
+     * <p>The caller is expected to have already validated {@code startByteOffset} against {@code [0, size()]};
+     * this method does not re-check it.
+     *
      * @param startByteOffset absolute offset into the decompressed byte stream to begin scanning from
-     *     (0 = whole file); must be within {@code [0, size()]}
+     *     (0 = whole file)
      */
     List<SequenceEntryMetadata> readFile(long startByteOffset) throws SequenceReadingException, IOException {
-        if (startByteOffset < 0 || startByteOffset > fileSize) {
-            throw new SequenceReadingException(
-                    "startByteOffset " + startByteOffset + " is out of bounds for file of size " + fileSize);
-        }
         long position = startByteOffset;
         List<SequenceEntryMetadata> entries = new ArrayList<>();
 

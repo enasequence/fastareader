@@ -133,6 +133,10 @@ public final class FastaReader implements AutoCloseable, SequenceFormatReader {
         SeekableByteReader byteReader = openAndValidateUtf8(fastaFile);
         boolean success = false;
         try {
+            if (startByteOffset < 0 || startByteOffset > byteReader.size()) {
+                throw new FastaFileException("startByteOffset " + startByteOffset
+                        + " is out of bounds for file of size " + byteReader.size());
+            }
             this.reader = new InternalReader(fastaFile, this.alphabet, FILE_FORMAT, byteReader);
             loadEntries();
             success = true;
