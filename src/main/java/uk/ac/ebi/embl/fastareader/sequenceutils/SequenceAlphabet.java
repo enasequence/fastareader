@@ -84,7 +84,7 @@ public final class SequenceAlphabet {
      */
     public static SequenceAlphabet defaultProteinAlphabet() {
         return new SequenceAlphabet(
-                new SequenceAlphabetSettings("ACDEFGHIKLMNPQRSTVWYXBZUO*acdefghiklmnpqrstvwyxbzuo", "\n\r", "Xx"));
+                new SequenceAlphabetSettings("ACDEFGHIJKLMNPQRSTVWYXBZUO*acdefghijklmnpqrstvwyxbzuo", "\n\r", "Xx"));
     }
 
     /** Returns allowed bases as uppercase, de-duplicated (e.g., 'A' not both 'A' and 'a'). */
