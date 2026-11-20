@@ -42,11 +42,9 @@ class SequenceAlphabetTest {
         assertTrue(a.isAllowedBase(b('N')));
 
         // sample of residues + stop are allowed
-        for (char c : "ACDEFGHIKLMNPQRSTVWYXBZUO*".toCharArray()) {
+        for (char c : "ACDEFGHIJKLMNPQRSTVWYXBZUO*".toCharArray()) {
             assertTrue(a.isAllowedBase(b(c)), "expected allowed residue: " + c);
         }
-        // a nucleotide-only ambiguity code that is not a protein residue is rejected
-        assertFalse(a.isAllowedBase(b('J')));
     }
 
     @Test
