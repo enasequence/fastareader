@@ -17,7 +17,7 @@ public final class SequenceIndex {
 
     public long firstBaseByte; // -1 if empty
     public long lastBaseByte; // -1 if empty
-    public List<LineEntry> lines;
+    public LineIndex lineIndex;
     public long nextHeaderByte; // byte offset of next '>' at line start, or fileSize (EOF)
     // Bases related counts
     public long startNBasesCount;
@@ -61,11 +61,34 @@ public final class SequenceIndex {
             long[] baseCounts,
             List<Character> baseChars,
             List<GapRegion> gapRegions) {
+        this(
+                firstBaseByte,
+                startNBasesCount,
+                lastBaseByte,
+                endNBasesCount,
+                LineSegmenter.fromLines(lines),
+                nextHeader,
+                baseCounts,
+                baseChars,
+                gapRegions);
+    }
+
+    /*** A constructor used by the SequenceIndexBuilder once it has counted bases and gap regions. ***/
+    SequenceIndex(
+            long firstBaseByte,
+            long startNBasesCount,
+            long lastBaseByte,
+            long endNBasesCount,
+            LineIndex lineIndex,
+            long nextHeader,
+            long[] baseCounts,
+            List<Character> baseChars,
+            List<GapRegion> gapRegions) {
         this.firstBaseByte = firstBaseByte;
         this.startNBasesCount = startNBasesCount;
         this.lastBaseByte = lastBaseByte;
         this.endNBasesCount = endNBasesCount;
-        this.lines = new ArrayList<>(lines);
+        this.lineIndex = lineIndex;
         this.nextHeaderByte = nextHeader;
         this.gapRegions = new ArrayList<>(gapRegions);
         this.caseInsensitiveBaseCount = new HashMap<>();
@@ -81,7 +104,7 @@ public final class SequenceIndex {
         this.endNBasesCount = other.endNBasesCount;
         this.caseInsensitiveBaseCount =
                 other.caseInsensitiveBaseCount != null ? new HashMap<>(other.caseInsensitiveBaseCount) : null;
-        this.lines = other.lines != null ? new ArrayList<>(other.lines) : null;
+        this.lineIndex = other.lineIndex != null ? other.lineIndex.copy() : null;
         this.gapRegions = other.gapRegions != null ? new ArrayList<>(other.gapRegions) : new ArrayList<>();
     }
 
@@ -103,12 +126,12 @@ public final class SequenceIndex {
     }
 
     public List<LineEntry> linesView() {
-        return Collections.unmodifiableList(lines);
+        return lineIndex == null ? Collections.emptyList() : lineIndex.linesView();
     }
 
     public long totalBases() {
-        if (lines.isEmpty()) return 0;
-        return lines.get(lines.size() - 1).baseEnd;
+        if (lineIndex == null || lineIndex.isEmpty()) return 0;
+        return lineIndex.totalBases();
     }
 
     public long totalBasesExcludingEdgeNBases() {
@@ -185,13 +208,10 @@ public final class SequenceIndex {
         if (fromBase < 1 || toBase < fromBase || toBase > total) {
             throw new IllegalArgumentException("bad base range: " + fromBase + ".." + toBase);
         }
-        int i = findLineByBase(fromBase);
-        int j = findLineByBase(toBase);
-
-        LineEntry from = lines.get(i);
+        LineEntry from = lineIndex.lineContainingBase(fromBase);
         long offStart = fromBase - from.baseStart;
 
-        LineEntry to = lines.get(j);
+        LineEntry to = lineIndex.lineContainingBase(toBase);
         long offEndIncl = toBase - to.baseStart;
 
         long byteStart = from.byteStart + offStart;
@@ -210,19 +230,6 @@ public final class SequenceIndex {
         return byteSpanForBaseRangeIncludingEdgeNBases(actualFromBase, actualToBase);
     }
 
-    private int findLineByBase(long base) {
-        int lo = 0, hi = lines.size() - 1, ans = hi;
-        while (lo <= hi) {
-            int mid = (lo + hi) >>> 1;
-            LineEntry L = lines.get(mid);
-            if (base < L.baseStart) hi = mid - 1;
-            else if (base > L.baseEnd) lo = mid + 1;
-            else return mid;
-            ans = lo;
-        }
-        return Math.max(0, Math.min(ans, lines.size() - 1));
-    }
-
     @Override
     public boolean equals(Object o) {
         if (this == o) return true;
@@ -233,7 +240,7 @@ public final class SequenceIndex {
                 && nextHeaderByte == that.nextHeaderByte
                 && startNBasesCount == that.startNBasesCount
                 && endNBasesCount == that.endNBasesCount
-                && Objects.equals(lines, that.lines)
+                && Objects.equals(lineIndex, that.lineIndex)
                 && Objects.equals(gapRegions, that.gapRegions)
                 && Objects.equals(caseInsensitiveBaseCount, that.caseInsensitiveBaseCount);
     }
@@ -246,7 +253,7 @@ public final class SequenceIndex {
                 nextHeaderByte,
                 startNBasesCount,
                 endNBasesCount,
-                lines,
+                lineIndex,
                 gapRegions,
                 caseInsensitiveBaseCount);
     }
